@@ -217,6 +217,7 @@ export function buildToolbar(root: HTMLElement, app: AppApi): (state: EditorStat
     sep(),
     group(
       commandButton("rule", "Horizontal line", cmd.insertRule),
+      commandButton("code", "Code block", cmd.toggleCodeBlock, undefined, (s) => cmd.currentBlockStyle(s) === "code"),
       commandButton("clear", "Clear formatting", cmd.clearFormatting, mod("\\")),
     ),
   );

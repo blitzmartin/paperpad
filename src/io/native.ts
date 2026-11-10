@@ -48,6 +48,9 @@ export function serializeHtml(doc: PMNode, title: string): string {
   const fragment = DOMSerializer.fromSchema(schema).serializeFragment(doc.content);
   const holder = document.createElement("div");
   holder.appendChild(fragment);
+  const pageNumbers = !!doc.attrs.pageNumbers;
+  // Browsers print the page number in the bottom margin when this rule is present.
+  const pageRule = pageNumbers ? "\n@page{@bottom-center{content:counter(page);font:9pt Arial,sans-serif;color:#555}}" : "";
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -55,10 +58,10 @@ export function serializeHtml(doc: PMNode, title: string): string {
     '<meta charset="utf-8">',
     `<meta name="generator" content="PaperPad ${VERSION}">`,
     `<title>${escapeHtml(title)}</title>`,
-    `<style>\n${standaloneCss()}\n</style>`,
+    `<style>\n${standaloneCss()}${pageRule}\n</style>`,
     "</head>",
     "<body>",
-    `<article class="paperpad">${holder.innerHTML}</article>`,
+    `<article class="paperpad"${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,
     "</body>",
     "</html>",
     "",
@@ -70,7 +73,10 @@ export function parseHtml(html: string): PMNode {
   const dom = new DOMParser().parseFromString(html, "text/html");
   const ours = dom.querySelector("article.paperpad");
   // Our own files keep tabs and repeated spaces; foreign HTML is normalized.
-  return PMDOMParser.fromSchema(schema).parse(ours ?? dom.body, { preserveWhitespace: ours ? true : undefined });
+  const doc = PMDOMParser.fromSchema(schema).parse(ours ?? dom.body, { preserveWhitespace: ours ? true : undefined });
+  // The page number setting is a document attribute, stored on the article element.
+  const pageNumbers = ours?.getAttribute("data-page-numbers") === "on";
+  return pageNumbers ? doc.type.create({ pageNumbers: true }, doc.content, doc.marks) : doc;
 }
 
 export function parsePlainText(text: string): PMNode {

@@ -3,9 +3,9 @@
 import { baseKeymap, chainCommands, exitCode } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
-import type { Node as PMNode } from "prosemirror-model";
+import { Fragment, type Node as PMNode } from "prosemirror-model";
 import { liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-list";
-import { EditorState, type Plugin, type Transaction } from "prosemirror-state";
+import { EditorState, Plugin, type Transaction, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import * as cmd from "./commands.ts";
 import { schema } from "./schema.ts";
@@ -13,9 +13,35 @@ import { schema } from "./schema.ts";
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 export const MOD_LABEL = isMac ? "Cmd" : "Ctrl";
 
+/**
+ * A horizontal rule is a leaf node. If it is the last thing in the document,
+ * there is no text position after it, so the caret cannot get past it and
+ * the rule is hard to reach. Keep a paragraph at the end at all times.
+ */
+function trailingBlock(doc: PMNode): PMNode | null {
+  const last = doc.lastChild;
+  if (!last || last.isTextblock) return null;
+  return schema.nodes.paragraph.create();
+}
+
+const keepTrailingParagraph = new Plugin({
+  appendTransaction(trs, _oldState, state) {
+    if (!trs.some((tr) => tr.docChanged)) return null;
+    const para = trailingBlock(state.doc);
+    if (!para) return null;
+    const tr = state.tr.insert(state.doc.content.size, para);
+    // Put the caret in the new paragraph if it was left on the rule.
+    if (!state.selection.$from.parent.isTextblock) {
+      tr.setSelection(TextSelection.create(tr.doc, tr.doc.content.size - 1));
+    }
+    return tr;
+  },
+});
+
 function plugins(): Plugin[] {
   return [
     history({ depth: 500 }),
+    keepTrailingParagraph,
     keymap({
       "Mod-z": undo,
       "Mod-y": redo,
@@ -42,12 +68,17 @@ function plugins(): Plugin[] {
       // Like a classic word processor: Tab nests list items, otherwise types a tab.
       Tab: chainCommands(sinkListItem(schema.nodes.list_item), cmd.insertTab),
       "Shift-Tab": liftListItem(schema.nodes.list_item),
+      ArrowDown: cmd.exitCodeBlock("down"),
+      ArrowUp: cmd.exitCodeBlock("up"),
     }),
     keymap(baseKeymap),
   ];
 }
 
 export function newState(doc?: PMNode): EditorState {
+  // Documents opened from file may end with a rule, so add the paragraph here too.
+  const para = doc && trailingBlock(doc);
+  if (doc && para) doc = doc.copy(doc.content.append(Fragment.from(para)));
   return EditorState.create({ schema, doc, plugins: plugins() });
 }
 

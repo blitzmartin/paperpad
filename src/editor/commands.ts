@@ -154,9 +154,60 @@ export const toggleBullets = toggleList(N.bullet_list);
 export const toggleNumbers = toggleList(N.ordered_list);
 
 export const insertRule: Command = (state, dispatch) => {
+  // The plugin in setup.ts adds a paragraph after a rule that ends the document.
   if (dispatch) dispatch(state.tr.replaceSelectionWith(N.horizontal_rule.create()).scrollIntoView());
   return true;
 };
+
+/**
+ * Arrow keys leave a code block, as in chat apps: Down on the last line moves
+ * into the paragraph after it (adding one if needed), Up on the first line
+ * moves into the paragraph before it. Otherwise the arrow moves within the code.
+ */
+export const exitCodeBlock = (dir: "up" | "down"): Command => (state, dispatch) => {
+  const { $head, empty } = state.selection;
+  if (!empty || $head.parent.type !== N.code_block) return false;
+  const code = $head.parent;
+  if (dir === "down") {
+    if (code.textBetween($head.parentOffset, code.content.size).includes("\n")) return false;
+    const after = $head.after();
+    if (dispatch) {
+      const next = state.doc.nodeAt(after);
+      let tr = state.tr;
+      let target = after + 1;
+      if (next && next.isTextblock) {
+        // Caret goes to the start of the following paragraph.
+      } else {
+        tr = tr.insert(after, N.paragraph.create());
+      }
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, target)).scrollIntoView());
+    }
+    return true;
+  }
+  if (code.textBetween(0, $head.parentOffset).includes("\n")) return false;
+  const before = $head.before();
+  if (dispatch) {
+    const prev = state.doc.resolve(before).nodeBefore;
+    let tr = state.tr;
+    if (!(prev && prev.isTextblock)) tr = tr.insert(before, N.paragraph.create());
+    // The new paragraph (or the existing one before) ends right at `before`.
+    const endOfPrev = tr.mapping.map(before) - 1;
+    dispatch(tr.setSelection(TextSelection.create(tr.doc, endOfPrev)).scrollIntoView());
+  }
+  return true;
+};
+
+/** Turns the current paragraph into a code block, or back into a normal paragraph. */
+export const toggleCodeBlock: Command = (state, dispatch) =>
+  setBlockStyle(state.selection.$from.parent.type === N.code_block ? "paragraph" : "code")(state, dispatch);
+
+/** Shows or hides the page number that print and export add to each page. */
+export const togglePageNumbers: Command = (state, dispatch) => {
+  if (dispatch) dispatch(state.tr.setDocAttribute("pageNumbers", !state.doc.attrs.pageNumbers));
+  return true;
+};
+
+export const pageNumbersOn = (state: EditorState): boolean => !!state.doc.attrs.pageNumbers;
 
 export const insertLineBreak: Command = (state, dispatch) => {
   if (dispatch) dispatch(state.tr.replaceSelectionWith(N.hard_break.create()).scrollIntoView());

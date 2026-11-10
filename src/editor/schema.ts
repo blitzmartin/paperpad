@@ -146,7 +146,8 @@ highlight.parseDOM = [...(highlight.parseDOM ?? []), { tag: "mark", getAttrs: ()
 
 export const schema = new Schema({
   nodes: {
-    doc,
+    // pageNumbers: print and export add a page number at the bottom of each page.
+    doc: { ...doc, attrs: { pageNumbers: { default: false } } },
     paragraph,
     heading,
     blockquote,

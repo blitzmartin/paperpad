@@ -5,6 +5,7 @@ import { TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../src/editor/actions.ts";
 import { exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
 import { keyLabel, MOD_LABEL } from "../src/ui/keys.ts";
+import { parsePrefs, PRESETS, type PresetId, presetOf } from "../src/ui/writing-feel.ts";
 import { schema } from "../src/editor/schema.ts";
 import { newState } from "../src/editor/setup.ts";
 import { toDocxParts } from "../src/export/docx.ts";
@@ -100,6 +101,15 @@ test("shortcut labels read like menu shortcuts", () => {
   assert.equal(keyLabel("Mod--"), `${MOD_LABEL}+-`);
   assert.equal(keyLabel("Mod-+"), `${MOD_LABEL}++`);
   assert.equal(keyLabel("F1"), "F1");
+});
+
+test("writing feel presets are told apart and stored settings are checked", () => {
+  for (const id of Object.keys(PRESETS) as PresetId[]) assert.equal(presetOf(PRESETS[id].prefs), id);
+  assert.equal(presetOf({ ...PRESETS.smooth.prefs, shape: "underscore" }), null, "custom");
+  assert.deepEqual(parsePrefs(null, false), PRESETS.smooth.prefs);
+  assert.deepEqual(parsePrefs("not json", true), PRESETS.classic.prefs, "reduced motion");
+  const stored = parsePrefs(JSON.stringify({ movement: "smoother", blink: "nope", shape: "underscore", smoothScroll: "yes" }), false);
+  assert.deepEqual(stored, { ...PRESETS.smooth.prefs, movement: "smoother", shape: "underscore" });
 });
 
 test("every DOCX part is allowed by the Rust export command", () => {

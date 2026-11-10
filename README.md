@@ -7,6 +7,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
 - **Page numbers** at the bottom of each printed page, in PDF, Word and RTF exports. The setting is saved with the document.
 - **Word count** in the status bar, with the count for the selection when text is selected.
+- **Writing feel** in View, Options: Classic, Smooth or Calm caret presets, plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Light and dark mode**, following your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
 - **Native format:** a small standalone `.html` file that any browser can open forever.

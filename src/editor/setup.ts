@@ -8,6 +8,7 @@ import { liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-li
 import { EditorState, Plugin, TextSelection, type Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { actionKeymap } from "./actions.ts";
+import { caretPlugin } from "./caret.ts";
 import * as cmd from "./commands.ts";
 import { schema } from "./schema.ts";
 
@@ -41,6 +42,7 @@ function plugins(): Plugin[] {
   return [
     history({ depth: 500 }),
     keepTrailingParagraph,
+    caretPlugin,
     keymap({
       ...actionKeymap(),
       "Shift-Enter": chainCommands(exitCode, cmd.insertLineBreak),
@@ -78,4 +80,13 @@ export function createView(mount: HTMLElement, onChange: (state: EditorState) =>
     },
   });
   return view;
+}
+
+/** A one paragraph editor for trying caret settings. Destroy it when done. */
+export function createPreview(mount: HTMLElement, text: string): EditorView {
+  const doc = schema.nodes.doc.create(null, schema.nodes.paragraph.create(null, schema.text(text)));
+  return new EditorView(mount, {
+    state: EditorState.create({ doc, plugins: [caretPlugin, keymap(baseKeymap)] }),
+    attributes: { class: "doc preview", spellcheck: "false", "aria-label": "Caret preview" },
+  });
 }

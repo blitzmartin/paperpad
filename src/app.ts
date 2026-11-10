@@ -18,6 +18,7 @@ import { createFindPanel } from "./ui/find-panel.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
+import { initWritingFeel, openOptions } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
 import { currentTheme, loadZoom, onThemeChange, saveZoom, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
@@ -40,6 +41,7 @@ export interface AppActions extends Record<EditorActionId, Action> {
   zoomIn: Action;
   zoomOut: Action;
   zoomReset: Action;
+  options: Action;
   shortcuts: Action;
   about: Action;
 }
@@ -83,6 +85,7 @@ export function startApp() {
   let lastTitle = "";
   let updateToolbar: (s: EditorState) => void = () => {};
 
+  initWritingFeel();
   const view = createView(page, (state) => refresh(state));
   const isDirty = () => !view.state.doc.eq(info.saved);
   const stem = () => info.name.replace(/\.[^.]+$/, "") || "Untitled";
@@ -368,6 +371,7 @@ export function startApp() {
     zoomIn: { label: "Zoom in", keys: ["Mod-+", "Mod-="], run: () => changeZoom(1) },
     zoomOut: { label: "Zoom out", keys: ["Mod--"], run: () => changeZoom(-1) },
     zoomReset: { label: "Actual size", keys: ["Mod-0"], run: () => changeZoom(0) },
+    options: { label: "Options...", run: () => void openOptions().then(() => view.focus()) },
     shortcuts: { label: "Keyboard shortcuts", keys: ["F1"], run: shortcuts },
     about: { label: "About PaperPad", run: about },
   };
@@ -407,7 +411,7 @@ export function startApp() {
     {
       label: "View",
       key: "v",
-      items: [A.darkMode, SEP, A.zoomIn, A.zoomOut, A.zoomReset, SEP, A.pageNumbers],
+      items: [A.darkMode, SEP, A.zoomIn, A.zoomOut, A.zoomReset, SEP, A.pageNumbers, SEP, A.options],
     },
     {
       label: "Format",

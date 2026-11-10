@@ -53,7 +53,7 @@ export function showModal(opts: ModalOptions): Promise<string> {
         finish(opts.cancelId);
       } else if (e.key === "Tab") {
         // Keep focus inside the dialog.
-        const focusable = Array.from(win.querySelectorAll<HTMLElement>("button, input, select, textarea"));
+        const focusable = Array.from(win.querySelectorAll<HTMLElement>("button, input, select, textarea, summary, [contenteditable='true']"));
         const i = focusable.indexOf(document.activeElement as HTMLElement);
         const next = e.shiftKey ? (i <= 0 ? focusable.length - 1 : i - 1) : (i + 1) % focusable.length;
         focusable[next]?.focus();

@@ -40,6 +40,11 @@
   --icon-silver: #b9c0bb;
   --icon-wood: #b5835a;
 
+  /* Bevels: raised = light top-left, dark bottom-right. Sunken is the reverse. */
+  --raised: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo);
+  --sunken: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi);
+  --well: var(--sunken), inset 2px 2px 0 rgba(0, 0, 0, 0.08);
+
   color-scheme: light;
 }
 
@@ -115,9 +120,6 @@ button, select, input { font: inherit; color: inherit; }
   height: 100vh;
 }
 
-/* Bevels: raised = light top-left, dark bottom-right. Sunken is the reverse. */
-.raised { box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo); }
-.sunken { box-shadow: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi); }
 
 /* ---- menu bar ---------------------------------------------------------------- */
 
@@ -151,7 +153,7 @@ button, select, input { font: inherit; color: inherit; }
   padding: 3px 4px;
   background: var(--chrome);
   border-radius: 4px;
-  box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo);
+  box-shadow: var(--raised);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -183,11 +185,11 @@ button, select, input { font: inherit; color: inherit; }
   color: var(--text);
   cursor: default;
 }
-.tb:hover:not(:disabled) { box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo); }
+.tb:hover:not(:disabled) { box-shadow: var(--raised); }
 .tb:active:not(:disabled),
 .tb[aria-pressed="true"] {
   background: var(--chrome-2);
-  box-shadow: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi);
+  box-shadow: var(--sunken);
 }
 .tb[aria-pressed="true"] .ico { transform: translate(1px, 1px); }
 .tb:disabled { opacity: 0.4; }
@@ -205,14 +207,16 @@ button, select, input { font: inherit; color: inherit; }
   box-shadow: 0 0 0 1px var(--lo);
 }
 
-.tb-select {
+/* Sunken wells for typing and choosing: toolbar selects and dialog fields. */
+.tb-select,
+.field {
   height: 24px;
   padding: 0 4px;
   border: 0;
   border-radius: 3px;
   background: var(--paper);
   color: var(--ink);
-  box-shadow: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi), inset 2px 2px 0 rgba(0, 0, 0, 0.08);
+  box-shadow: var(--well);
 }
 .tb-select.w-style { width: 104px; }
 .tb-select.w-font { width: 140px; }
@@ -390,7 +394,7 @@ button, select, input { font: inherit; color: inherit; }
   padding: 2px 8px;
   border-radius: 2px;
   white-space: nowrap;
-  box-shadow: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi);
+  box-shadow: var(--sunken);
 }
 .sb-message { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .sb-pos { min-width: 110px; }
@@ -403,7 +407,7 @@ button, select, input { font: inherit; color: inherit; }
   color: var(--text);
   border: 1px solid var(--edge);
   border-radius: 4px;
-  box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo), 4px 4px 0 rgba(0, 0, 0, 0.28);
+  box-shadow: var(--raised), 4px 4px 0 rgba(0, 0, 0, 0.28);
 }
 
 .menu {
@@ -455,7 +459,7 @@ button, select, input { font: inherit; color: inherit; }
   line-height: 1;
   background: var(--chrome);
   color: var(--text);
-  box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo);
+  box-shadow: var(--raised);
 }
 
 .btn {
@@ -464,23 +468,13 @@ button, select, input { font: inherit; color: inherit; }
   border: 0;
   border-radius: 3px;
   background: var(--chrome);
-  box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo), 0 0 0 1px var(--edge);
+  box-shadow: var(--raised), 0 0 0 1px var(--edge);
   cursor: default;
 }
-.btn:active { box-shadow: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi), 0 0 0 1px var(--edge); }
-.btn.primary { box-shadow: inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo), 0 0 0 2px var(--edge); }
+.btn:active { box-shadow: var(--sunken), 0 0 0 1px var(--edge); }
+.btn.primary { box-shadow: var(--raised), 0 0 0 2px var(--edge); }
 
-.field {
-  height: 24px;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 3px;
-  background: var(--paper);
-  color: var(--ink);
-  user-select: text;
-  -webkit-user-select: text;
-  box-shadow: inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi), inset 2px 2px 0 rgba(0, 0, 0, 0.08);
-}
+.field { padding: 0 6px; user-select: text; -webkit-user-select: text; }
 
 .overlay {
   position: fixed;
@@ -549,10 +543,6 @@ kbd {
   .workspace { padding: 12px 8px 32px; }
   .doc { padding: 1.2cm 1cm; }
   .sb-cell:nth-child(4), .sb-cell:nth-child(5) { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
 }
 
 /* ---- printing and Save as PDF: only the document, on plain white paper ---- */

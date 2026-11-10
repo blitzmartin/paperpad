@@ -1,122 +1,98 @@
 // The two icon toolbars: the standard bar (files, clipboard, history) and
 // the format bar (styles, fonts, character and paragraph formatting).
+// Buttons are built from the shared actions, so labels, shortcuts and
+// pressed states match the menus.
 
-import { redoDepth, undoDepth } from "prosemirror-history";
 import type { MarkType } from "prosemirror-model";
 import type { Command, EditorState } from "prosemirror-state";
+import type { AppActions } from "../app.ts";
+import { BLOCK_STYLES } from "../editor/actions.ts";
 import * as cmd from "../editor/commands.ts";
-import { COLORS, type ColorDef, DEFAULT_SIZE, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
+import { COLORS, type ColorDef, DEFAULT_FONT, DEFAULT_SIZE, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
 import { schema } from "../editor/schema.ts";
-import { MOD_LABEL } from "../editor/setup.ts";
-import type { AppApi } from "../app.ts";
+import { type Action, shortcutText } from "./action.ts";
 import { dismissable, h, placeBelow } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
-import { openMenu } from "./menu.ts";
+import { type MenuEntry, openMenu } from "./menu.ts";
 
-interface Updater {
-  (state: EditorState): void;
+export interface ToolbarDeps {
+  actions: AppActions;
+  run(command: Command): void;
+  focus(): void;
+  exportItems(): MenuEntry[];
+  onThemeChange(fn: () => void): void;
 }
 
-export function buildToolbar(root: HTMLElement, app: AppApi): (state: EditorState) => void {
-  const updaters: Updater[] = [];
+export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: EditorState) => void {
+  const updaters: ((state: EditorState) => void)[] = [];
+  const { actions: A, run } = deps;
   const M = schema.marks;
-  const mod = (k: string) => `${MOD_LABEL}+${k}`;
 
-  const button = (name: IconName, title: string, onClick: (btn: HTMLButtonElement) => void, opts: { shortcut?: string; label?: string } = {}) => {
-    const tip = opts.shortcut ? `${title} (${opts.shortcut})` : title;
-    const btn = h("button", { class: "tb", type: "button", title: tip, "aria-label": title }, icon(name));
-    if (opts.label) btn.append(h("span", { class: "tb-label", text: opts.label }));
+  const button = (name: IconName, label: string, shortcut: string, onClick: (btn: HTMLButtonElement) => void) => {
+    const btn = h("button", { class: "tb", type: "button", title: shortcut ? `${label} (${shortcut})` : label, "aria-label": label }, icon(name));
     // Keep the caret in the document when clicking a tool.
     btn.addEventListener("mousedown", (e) => e.preventDefault());
     btn.addEventListener("click", () => onClick(btn));
     return btn;
   };
 
-  const commandButton = (name: IconName, title: string, command: Command, shortcut?: string, isActive?: (s: EditorState) => boolean) => {
-    const btn = button(name, title, () => app.run(command), { shortcut });
-    if (isActive) {
+  /** A button for an action. Menu labels drop their "..." in tooltips. */
+  const tool = (a: Action, name: IconName) => {
+    const btn = button(name, a.label.replace(/\.\.\.$/, ""), shortcutText(a), () => a.run());
+    const { checked, enabled } = a;
+    if (checked) {
       btn.setAttribute("aria-pressed", "false");
-      updaters.push((s) => btn.setAttribute("aria-pressed", String(isActive(s))));
+      updaters.push(() => btn.setAttribute("aria-pressed", String(checked())));
     }
+    if (enabled) updaters.push(() => (btn.disabled = !enabled()));
     return btn;
   };
-
-  const markButton = (name: IconName, title: string, type: MarkType, command: Command, shortcut: string) =>
-    commandButton(name, title, command, shortcut, (s) => cmd.markActive(s, type));
 
   const sep = () => h("span", { class: "tb-sep", role: "separator" });
   const group = (...children: HTMLElement[]) => h("div", { class: "tb-group" }, ...children);
 
   // ---- standard bar -----------------------------------------------------------
 
-  const undoBtn = button("undo", "Undo", () => app.undo(), { shortcut: mod("Z") });
-  const redoBtn = button("redo", "Redo", () => app.redo(), { shortcut: mod("Y") });
-  updaters.push((s) => {
-    undoBtn.disabled = undoDepth(s) === 0;
-    redoBtn.disabled = redoDepth(s) === 0;
-  });
-
-  const exportBtn = button(
-    "export",
-    "Export",
-    (btn) =>
-      void openMenu(btn, [
-        { label: "PDF (print to PDF)...", run: () => app.exportAs("pdf") },
-        { label: "Word document (.docx)...", run: () => app.exportAs("docx") },
-        { label: "Rich Text (.rtf)...", run: () => app.exportAs("rtf") },
-        { label: "Markdown (.md)...", run: () => app.exportAs("md") },
-        { label: "Plain text (.txt)...", run: () => app.exportAs("txt") },
-      ]),
-  );
+  const exportBtn = button("export", "Export", "", (btn) => void openMenu(btn, deps.exportItems()));
   exportBtn.append(icon("caret"));
   exportBtn.classList.add("has-caret");
 
-  const themeBtn = button("moon", "Dark mode", () => app.toggleTheme(), { shortcut: mod("Shift+D") });
+  // The theme button shows what a click switches to.
+  const themeBtn = button("moon", "", "", () => A.darkMode.run());
   const syncTheme = () => {
-    const dark = app.theme() === "dark";
-    themeBtn.replaceChildren(icon(dark ? "sun" : "moon"));
+    const dark = A.darkMode.checked!();
     const label = dark ? "Light mode" : "Dark mode";
-    themeBtn.title = `${label} (${mod("Shift+D")})`;
+    themeBtn.replaceChildren(icon(dark ? "sun" : "moon"));
+    themeBtn.title = `${label} (${shortcutText(A.darkMode)})`;
     themeBtn.setAttribute("aria-label", label);
   };
   syncTheme();
-  app.onThemeChange(syncTheme);
+  deps.onThemeChange(syncTheme);
 
   const standard = h(
     "div",
     { class: "tb-row" },
-    group(
-      button("new", "New", () => app.newDocument(), { shortcut: mod("N") }),
-      button("open", "Open", () => app.open(), { shortcut: mod("O") }),
-      button("save", "Save", () => app.save(), { shortcut: mod("S") }),
-    ),
+    group(tool(A.newDocument, "new"), tool(A.open, "open"), tool(A.save, "save")),
     sep(),
-    group(button("print", "Print", () => app.print(), { shortcut: mod("P") }), exportBtn),
+    group(tool(A.print, "print"), exportBtn),
     sep(),
-    group(
-      button("cut", "Cut", () => app.clipboard("cut"), { shortcut: mod("X") }),
-      button("copy", "Copy", () => app.clipboard("copy"), { shortcut: mod("C") }),
-      button("paste", "Paste", () => app.clipboard("paste"), { shortcut: mod("V") }),
-    ),
+    group(tool(A.cut, "cut"), tool(A.copy, "copy"), tool(A.paste, "paste")),
     sep(),
-    group(undoBtn, redoBtn),
+    group(tool(A.undo, "undo"), tool(A.redo, "redo")),
     sep(),
-    group(
-      button("find", "Find and replace", () => app.find(), { shortcut: mod("F") }),
-      commandButton("pages", "Page numbers", cmd.togglePageNumbers, undefined, cmd.pageNumbersOn),
-    ),
+    group(tool(A.find, "find"), tool(A.pageNumbers, "pages")),
     h("span", { class: "tb-spacer" }),
     group(themeBtn),
   );
 
   // ---- format bar ---------------------------------------------------------------
 
-  const select = (label: string, options: [string, string][], onChange: (v: string) => void, read: (s: EditorState) => string, cls = "") => {
+  const select = (label: string, cls: string, options: [string, string][], onChange: (v: string) => void, read: (s: EditorState) => string) => {
     const el = h("select", { class: `tb-select ${cls}`, title: label, "aria-label": label });
     for (const [value, text] of options) el.append(h("option", { value, text }));
     el.addEventListener("change", () => {
       onChange(el.value);
-      app.focus();
+      deps.focus();
     });
     updaters.push((s) => {
       const v = read(s);
@@ -127,32 +103,32 @@ export function buildToolbar(root: HTMLElement, app: AppApi): (state: EditorStat
 
   const styleSelect = select(
     "Paragraph style",
-    [["paragraph", "Normal"], ["h1", "Heading 1"], ["h2", "Heading 2"], ["h3", "Heading 3"], ["quote", "Quote"], ["code", "Code"]],
-    (v) => app.run(cmd.setBlockStyle(v as cmd.BlockStyle)),
-    (s) => cmd.currentBlockStyle(s),
     "w-style",
+    BLOCK_STYLES.map((b): [string, string] => [b.style, b.label]),
+    (v) => run(cmd.setBlockStyle(v as cmd.BlockStyle)),
+    cmd.currentBlockStyle,
   );
 
   const fontSelect = select(
     "Font",
-    [["", "Default (Arial)"], ...FONTS.map((f): [string, string] => [f.key, f.label])],
-    (v) => app.run(cmd.setKeyedMark(M.font, v || null)),
-    (s) => cmd.markKey(s, M.font) ?? "",
     "w-font",
+    [["", `Default (${DEFAULT_FONT.label})`], ...FONTS.map((f): [string, string] => [f.key, f.label])],
+    (v) => run(cmd.setKeyedMark(M.font, v || null)),
+    (s) => cmd.markKey(s, M.font) ?? "",
   );
   for (const opt of Array.from(fontSelect.options)) if (opt.value) opt.classList.add(`ff-${opt.value}`);
 
   const sizeSelect = select(
     "Font size",
-    SIZES.map((n): [string, string] => [String(n), String(n)]),
-    (v) => app.run(cmd.setKeyedMark(M.size, Number(v) === DEFAULT_SIZE ? null : v)),
-    (s) => cmd.markKey(s, M.size) ?? String(DEFAULT_SIZE),
     "w-size",
+    SIZES.map((n): [string, string] => [String(n), String(n)]),
+    (v) => run(cmd.setKeyedMark(M.size, Number(v) === DEFAULT_SIZE ? null : v)),
+    (s) => cmd.markKey(s, M.size) ?? String(DEFAULT_SIZE),
   );
 
   const colorPicker = (name: IconName, title: string, type: MarkType, list: readonly ColorDef[], noneLabel: string, prefix: string) => {
     const bar = h("span", { class: "color-bar" });
-    const btn = button(name, title, () => {
+    const btn = button(name, title, "", () => {
       const popup = h("div", { class: "window swatches", role: "dialog", "aria-label": title });
       let undismiss = () => {};
       const close = () => {
@@ -161,7 +137,7 @@ export function buildToolbar(root: HTMLElement, app: AppApi): (state: EditorStat
       };
       const pick = (key: string | null) => {
         close();
-        app.run(cmd.setKeyedMark(type, key));
+        run(cmd.setKeyedMark(type, key));
       };
       const none = h("button", { class: "btn swatch-none", type: "button", text: noneLabel, on: { click: () => pick(null) } });
       const grid = h("div", { class: "swatch-grid" });
@@ -184,45 +160,23 @@ export function buildToolbar(root: HTMLElement, app: AppApi): (state: EditorStat
     return btn;
   };
 
-  const alignButton = (name: IconName, title: string, align: "left" | "center" | "right" | "justify", key: string) =>
-    commandButton(name, title, cmd.setAlign(align), mod(key), (s) => cmd.currentAlign(s) === align);
-
   const format = h(
     "div",
     { class: "tb-row" },
     group(styleSelect, fontSelect, sizeSelect),
     sep(),
-    group(
-      markButton("bold", "Bold", M.strong, cmd.toggleBold, mod("B")),
-      markButton("italic", "Italic", M.em, cmd.toggleItalic, mod("I")),
-      markButton("underline", "Underline", M.underline, cmd.toggleUnderline, mod("U")),
-      markButton("strike", "Strikethrough", M.strike, cmd.toggleStrike, mod("Shift+X")),
-    ),
+    group(tool(A.bold, "bold"), tool(A.italic, "italic"), tool(A.underline, "underline"), tool(A.strike, "strike")),
     sep(),
     group(
       colorPicker("color", "Text color", M.color, COLORS, "Automatic", "c-"),
       colorPicker("highlight", "Highlight", M.highlight, HIGHLIGHTS, "No highlight", "hl-"),
     ),
     sep(),
-    group(
-      alignButton("alignLeft", "Align left", "left", "L"),
-      alignButton("alignCenter", "Center", "center", "E"),
-      alignButton("alignRight", "Align right", "right", "R"),
-      alignButton("alignJustify", "Justify", "justify", "J"),
-    ),
+    group(tool(A.alignLeft, "alignLeft"), tool(A.alignCenter, "alignCenter"), tool(A.alignRight, "alignRight"), tool(A.alignJustify, "alignJustify")),
     sep(),
-    group(
-      commandButton("bullets", "Bulleted list", cmd.toggleBullets, mod("Shift+8"), (s) => cmd.currentList(s) === "bullet"),
-      commandButton("numbers", "Numbered list", cmd.toggleNumbers, mod("Shift+7"), (s) => cmd.currentList(s) === "ordered"),
-      commandButton("outdent", "Decrease indent", cmd.outdent, mod("[")),
-      commandButton("indent", "Increase indent", cmd.indent, mod("]")),
-    ),
+    group(tool(A.bullets, "bullets"), tool(A.numbers, "numbers"), tool(A.outdent, "outdent"), tool(A.indent, "indent")),
     sep(),
-    group(
-      commandButton("rule", "Horizontal line", cmd.insertRule),
-      commandButton("code", "Code block", cmd.toggleCodeBlock, undefined, (s) => cmd.currentBlockStyle(s) === "code"),
-      commandButton("clear", "Clear formatting", cmd.clearFormatting, mod("\\")),
-    ),
+    group(tool(A.rule, "rule"), tool(A.codeBlock, "code"), tool(A.clearFormatting, "clear")),
   );
 
   root.append(standard, format);

@@ -3,7 +3,10 @@
 A fast, light and local-first word processor with a modern retro 90s look.
 Think WordPad in 1995, with a softer palette, a dark mode and today's file formats.
 
-- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, horizontal line, clear formatting.
+- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, horizontal line, code block, clear formatting.
+- **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
+- **Page numbers** at the bottom of each printed page, in PDF, Word and RTF exports. The setting is saved with the document.
+- **Word count** in the status bar, with the count for the selection when text is selected.
 - **Light and dark mode**, following your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
 - **Native format:** a small standalone `.html` file that any browser can open forever.
@@ -39,7 +42,7 @@ Other scripts:
 ```sh
 npm run dev           # frontend only, in a browser (open and save are disabled)
 npm run typecheck
-npm test              # exporter and palette tests (Node's built-in runner)
+npm test              # exporter, palette and editor tests (Node's built-in runner)
 cd src-tauri && cargo test
 ```
 

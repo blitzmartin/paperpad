@@ -1,23 +1,40 @@
-// Light and dark themes. The choice is remembered per machine; until the
-// user picks one, PaperPad follows the operating system.
+// Per-machine preferences: the light or dark theme and the zoom level.
+// Until the user picks a theme, PaperPad follows the operating system.
 
 export type Theme = "light" | "dark";
 
-const KEY = "paperpad.theme";
-const listeners: (() => void)[] = [];
-const media = window.matchMedia("(prefers-color-scheme: dark)");
-
-function stored(): Theme | null {
+// Storage can be unavailable (private mode, locked down profiles): then
+// preferences simply last for this session.
+function load(key: string): string | null {
   try {
-    const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" ? v : null;
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* session only */
+  }
+}
+
+// ---- theme ------------------------------------------------------------------------
+
+const THEME_KEY = "paperpad.theme";
+const listeners: (() => void)[] = [];
+const media = window.matchMedia("(prefers-color-scheme: dark)");
+const systemTheme = (): Theme => (media.matches ? "dark" : "light");
+
+function storedTheme(): Theme | null {
+  const v = load(THEME_KEY);
+  return v === "light" || v === "dark" ? v : null;
+}
+
 export function currentTheme(): Theme {
-  return (document.documentElement.dataset.theme as Theme | undefined) ?? (media.matches ? "dark" : "light");
+  return (document.documentElement.dataset.theme as Theme | undefined) ?? systemTheme();
 }
 
 function apply(theme: Theme) {
@@ -26,19 +43,15 @@ function apply(theme: Theme) {
 }
 
 export function initTheme() {
-  apply(stored() ?? (media.matches ? "dark" : "light"));
+  apply(storedTheme() ?? systemTheme());
   media.addEventListener("change", () => {
-    if (!stored()) apply(media.matches ? "dark" : "light");
+    if (!storedTheme()) apply(systemTheme());
   });
 }
 
 export function toggleTheme() {
   const next: Theme = currentTheme() === "dark" ? "light" : "dark";
-  try {
-    localStorage.setItem(KEY, next);
-  } catch {
-    /* storage unavailable: the choice lasts for this session only */
-  }
+  store(THEME_KEY, next);
   apply(next);
 }
 
@@ -46,24 +59,16 @@ export function onThemeChange(fn: () => void) {
   listeners.push(fn);
 }
 
-// ---- zoom (also a per-machine preference) ---------------------------------------
+// ---- zoom -------------------------------------------------------------------------
 
 const ZOOM_KEY = "paperpad.zoom";
 export const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 export function loadZoom(): number {
-  try {
-    const z = Number(localStorage.getItem(ZOOM_KEY));
-    return ZOOM_STEPS.includes(z) ? z : 1;
-  } catch {
-    return 1;
-  }
+  const z = Number(load(ZOOM_KEY));
+  return ZOOM_STEPS.includes(z) ? z : 1;
 }
 
 export function saveZoom(z: number) {
-  try {
-    localStorage.setItem(ZOOM_KEY, String(z));
-  } catch {
-    /* ignore */
-  }
+  store(ZOOM_KEY, String(z));
 }

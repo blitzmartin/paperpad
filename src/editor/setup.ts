@@ -1,17 +1,15 @@
 // Creates the ProseMirror state and view with PaperPad's plugins and keymap.
 
 import { baseKeymap, chainCommands, exitCode } from "prosemirror-commands";
-import { history, redo, undo } from "prosemirror-history";
+import { history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { Fragment, type Node as PMNode } from "prosemirror-model";
 import { liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-list";
-import { EditorState, Plugin, type Transaction, TextSelection } from "prosemirror-state";
+import { EditorState, Plugin, TextSelection, type Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
+import { actionKeymap } from "./actions.ts";
 import * as cmd from "./commands.ts";
 import { schema } from "./schema.ts";
-
-const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
-export const MOD_LABEL = isMac ? "Cmd" : "Ctrl";
 
 /**
  * A horizontal rule is a leaf node. If it is the last thing in the document,
@@ -37,36 +35,19 @@ const keepTrailingParagraph = new Plugin({
   },
 });
 
+const listItem = schema.nodes.list_item;
+
 function plugins(): Plugin[] {
   return [
     history({ depth: 500 }),
     keepTrailingParagraph,
     keymap({
-      "Mod-z": undo,
-      "Mod-y": redo,
-      "Shift-Mod-z": redo,
-      "Mod-b": cmd.toggleBold,
-      "Mod-i": cmd.toggleItalic,
-      "Mod-u": cmd.toggleUnderline,
-      "Shift-Mod-x": cmd.toggleStrike,
-      "Mod-l": cmd.setAlign("left"),
-      "Mod-e": cmd.setAlign("center"),
-      "Mod-r": cmd.setAlign("right"),
-      "Mod-j": cmd.setAlign("justify"),
-      "Shift-Mod-8": cmd.toggleBullets,
-      "Shift-Mod-7": cmd.toggleNumbers,
-      "Mod-]": cmd.indent,
-      "Mod-[": cmd.outdent,
-      "Mod-Alt-0": cmd.setBlockStyle("paragraph"),
-      "Mod-Alt-1": cmd.setBlockStyle("h1"),
-      "Mod-Alt-2": cmd.setBlockStyle("h2"),
-      "Mod-Alt-3": cmd.setBlockStyle("h3"),
-      "Mod-\\": cmd.clearFormatting,
+      ...actionKeymap(),
       "Shift-Enter": chainCommands(exitCode, cmd.insertLineBreak),
-      Enter: splitListItem(schema.nodes.list_item),
+      Enter: splitListItem(listItem),
       // Like a classic word processor: Tab nests list items, otherwise types a tab.
-      Tab: chainCommands(sinkListItem(schema.nodes.list_item), cmd.insertTab),
-      "Shift-Tab": liftListItem(schema.nodes.list_item),
+      Tab: chainCommands(sinkListItem(listItem), cmd.insertTab),
+      "Shift-Tab": liftListItem(listItem),
       ArrowDown: cmd.exitCodeBlock("down"),
       ArrowUp: cmd.exitCodeBlock("up"),
     }),
@@ -81,7 +62,7 @@ export function newState(doc?: PMNode): EditorState {
   return EditorState.create({ schema, doc, plugins: plugins() });
 }
 
-export function createView(mount: HTMLElement, onTransaction: (tr: Transaction, view: EditorView) => void): EditorView {
+export function createView(mount: HTMLElement, onChange: (state: EditorState) => void): EditorView {
   const view: EditorView = new EditorView(mount, {
     state: newState(),
     attributes: {
@@ -91,9 +72,9 @@ export function createView(mount: HTMLElement, onTransaction: (tr: Transaction, 
       role: "textbox",
       "aria-multiline": "true",
     },
-    dispatchTransaction(tr) {
+    dispatchTransaction(tr: Transaction) {
       view.updateState(view.state.apply(tr));
-      onTransaction(tr, view);
+      onChange(view.state);
     },
   });
   return view;

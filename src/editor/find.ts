@@ -54,20 +54,15 @@ export function findNext(state: EditorState, query: string, opts: FindOptions, b
   return state.tr.setSelection(TextSelection.create(state.doc, hit.from, hit.to)).scrollIntoView();
 }
 
-function selectionMatches(state: EditorState, query: string, opts: FindOptions): boolean {
-  const { from, to } = state.selection;
-  return findAll(state.doc, query, opts).some((m) => m.from === from && m.to === to);
-}
-
 /** Replaces the current match (if selected) and moves to the next one. */
 export function replaceOne(state: EditorState, query: string, replacement: string, opts: FindOptions): Transaction | null {
-  if (!selectionMatches(state, query, opts)) return findNext(state, query, opts);
   const { from, to } = state.selection;
+  if (!findAll(state.doc, query, opts).some((m) => m.from === from && m.to === to)) return findNext(state, query, opts);
   const tr = state.tr.insertText(replacement, from, to);
   const after = tr.mapping.map(to);
-  tr.setSelection(TextSelection.create(tr.doc, after));
-  const next = findAll(tr.doc, query, opts).find((m) => m.from >= after) ?? findAll(tr.doc, query, opts)[0];
-  if (next) tr.setSelection(TextSelection.create(tr.doc, next.from, next.to));
+  const remaining = findAll(tr.doc, query, opts);
+  const next = remaining.find((m) => m.from >= after) ?? remaining[0];
+  tr.setSelection(next ? TextSelection.create(tr.doc, next.from, next.to) : TextSelection.create(tr.doc, after));
   return tr.scrollIntoView();
 }
 

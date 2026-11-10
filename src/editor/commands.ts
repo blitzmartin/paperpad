@@ -1,19 +1,25 @@
-// Editing commands used by the toolbar, the menus and the keymap.
+// Editing commands used by the actions (see actions.ts) and the keymap.
 // Every command follows the ProseMirror signature: (state, dispatch?) => boolean.
 // Calling it without dispatch only asks "can this run right now?".
 
-import { lift, setBlockType, toggleMark } from "prosemirror-commands";
+import { lift, setBlockType } from "prosemirror-commands";
 import type { Attrs, MarkType, Node as PMNode, NodeType } from "prosemirror-model";
 import { liftListItem, sinkListItem, wrapInList } from "prosemirror-schema-list";
 import { type Command, type EditorState, TextSelection } from "prosemirror-state";
 import { type Align, MAX_INDENT, schema } from "./schema.ts";
 
-const { marks: M, nodes: N } = schema;
+const { nodes: N } = schema;
 
-export const toggleBold = toggleMark(M.strong);
-export const toggleItalic = toggleMark(M.em);
-export const toggleUnderline = toggleMark(M.underline);
-export const toggleStrike = toggleMark(M.strike);
+const isList = (t: NodeType) => t === N.bullet_list || t === N.ordered_list;
+
+/** Depth of the closest ancestor of the selection start whose type matches, or 0. */
+function ancestorDepth(state: EditorState, match: (t: NodeType) => boolean): number {
+  const { $from } = state.selection;
+  for (let d = $from.depth; d > 0; d--) if (match($from.node(d).type)) return d;
+  return 0;
+}
+
+// ---- character formatting -------------------------------------------------------
 
 /** Sets (or with null, removes) a keyed mark such as font, size or color. */
 export function setKeyedMark(type: MarkType, key: string | null): Command {
@@ -47,6 +53,8 @@ export const clearFormatting: Command = (state, dispatch) => {
   return true;
 };
 
+// ---- paragraph formatting -------------------------------------------------------
+
 /** Applies a change to every paragraph and heading touched by the selection. */
 function updateTextblocks(state: EditorState, change: (attrs: Attrs) => Attrs | null) {
   const tr = state.tr;
@@ -69,50 +77,37 @@ function updateTextblocks(state: EditorState, change: (attrs: Attrs) => Attrs | 
 export function setAlign(align: Align): Command {
   return (state, dispatch) => {
     const tr = updateTextblocks(state, (a) => (a.align === align ? null : { align }));
-    if (tr && dispatch) dispatch(tr);
+    if (tr) dispatch?.(tr);
     return true;
   };
 }
 
-function inList(state: EditorState): boolean {
-  const { $from } = state.selection;
-  for (let d = $from.depth; d > 0; d--) if ($from.node(d).type === N.list_item) return true;
-  return false;
-}
+/** Indent and outdent: nest or lift list items, otherwise shift paragraphs. */
+const shiftIndent =
+  (delta: 1 | -1, inList: Command): Command =>
+  (state, dispatch) => {
+    if (ancestorDepth(state, (t) => t === N.list_item)) return inList(state, dispatch);
+    const tr = updateTextblocks(state, (a) => {
+      const indent = (a.indent as number) + delta;
+      return indent >= 0 && indent <= MAX_INDENT ? { indent } : null;
+    });
+    if (!tr) return false;
+    dispatch?.(tr);
+    return true;
+  };
 
-/** Indent: nests list items, otherwise shifts paragraphs right. */
-export const indent: Command = (state, dispatch) => {
-  if (inList(state)) return sinkListItem(N.list_item)(state, dispatch);
-  const tr = updateTextblocks(state, (a) => (a.indent < MAX_INDENT ? { indent: a.indent + 1 } : null));
-  if (!tr) return false;
-  if (dispatch) dispatch(tr);
-  return true;
-};
-
-export const outdent: Command = (state, dispatch) => {
-  if (inList(state)) return liftListItem(N.list_item)(state, dispatch);
-  const tr = updateTextblocks(state, (a) => (a.indent > 0 ? { indent: a.indent - 1 } : null));
-  if (!tr) return false;
-  if (dispatch) dispatch(tr);
-  return true;
-};
+export const indent = shiftIndent(1, sinkListItem(N.list_item));
+export const outdent = shiftIndent(-1, liftListItem(N.list_item));
 
 export type BlockStyle = "paragraph" | "h1" | "h2" | "h3" | "quote" | "code";
 
 export function setBlockStyle(style: BlockStyle): Command {
   return (state, dispatch) => {
     const { align = "left", indent = 0 } = state.selection.$from.parent.attrs;
-    // Leave a quote first, so "Normal" really means a plain paragraph.
-    const unquote: Command = (s, d) => {
-      const { $from } = s.selection;
-      for (let depth = $from.depth; depth > 0; depth--) {
-        if ($from.node(depth).type === N.blockquote) return lift(s, d);
-      }
-      return false;
-    };
     switch (style) {
       case "paragraph":
-        if (unquote(state, dispatch)) return true;
+        // Leave a quote first, so "Normal" really means a plain paragraph.
+        if (ancestorDepth(state, (t) => t === N.blockquote)) return lift(state, dispatch);
         return setBlockType(N.paragraph, { align, indent })(state, dispatch);
       case "h1":
       case "h2":
@@ -124,38 +119,45 @@ export function setBlockStyle(style: BlockStyle): Command {
         const { $from, $to } = state.selection;
         const range = $from.blockRange($to);
         if (!range) return false;
-        if (dispatch) {
-          const tr = state.tr.wrap(range, [{ type: N.blockquote }]);
-          dispatch(tr.scrollIntoView());
-        }
+        dispatch?.(state.tr.wrap(range, [{ type: N.blockquote }]).scrollIntoView());
         return true;
       }
     }
   };
 }
+
+/** Turns the current paragraph into a code block, or back into a normal paragraph. */
+export const toggleCodeBlock: Command = (state, dispatch) =>
+  setBlockStyle(state.selection.$from.parent.type === N.code_block ? "paragraph" : "code")(state, dispatch);
 
 /** Toggles a list: wraps, unwraps or converts between bullet and numbered. */
 export function toggleList(listType: NodeType): Command {
   return (state, dispatch) => {
+    const depth = ancestorDepth(state, isList);
+    if (!depth) return wrapInList(listType)(state, dispatch);
     const { $from } = state.selection;
-    for (let d = $from.depth; d > 0; d--) {
-      const node = $from.node(d);
-      if (node.type === N.bullet_list || node.type === N.ordered_list) {
-        if (node.type === listType) return liftListItem(N.list_item)(state, dispatch);
-        if (dispatch) dispatch(state.tr.setNodeMarkup($from.before(d), listType));
-        return true;
-      }
-    }
-    return wrapInList(listType)(state, dispatch);
+    if ($from.node(depth).type === listType) return liftListItem(N.list_item)(state, dispatch);
+    dispatch?.(state.tr.setNodeMarkup($from.before(depth), listType));
+    return true;
   };
 }
 
-export const toggleBullets = toggleList(N.bullet_list);
-export const toggleNumbers = toggleList(N.ordered_list);
+// ---- insertions and movement ------------------------------------------------------
 
-export const insertRule: Command = (state, dispatch) => {
-  // The plugin in setup.ts adds a paragraph after a rule that ends the document.
-  if (dispatch) dispatch(state.tr.replaceSelectionWith(N.horizontal_rule.create()).scrollIntoView());
+const insertNode =
+  (node: PMNode): Command =>
+  (state, dispatch) => {
+    dispatch?.(state.tr.replaceSelectionWith(node).scrollIntoView());
+    return true;
+  };
+
+// The plugin in setup.ts adds a paragraph after a rule that ends the document.
+export const insertRule = insertNode(N.horizontal_rule.create());
+export const insertLineBreak = insertNode(N.hard_break.create());
+
+export const insertTab: Command = (state, dispatch) => {
+  if (state.selection.$from.parent.type.spec.code) return false;
+  dispatch?.(state.tr.insertText("\t").scrollIntoView());
   return true;
 };
 
@@ -164,60 +166,36 @@ export const insertRule: Command = (state, dispatch) => {
  * into the paragraph after it (adding one if needed), Up on the first line
  * moves into the paragraph before it. Otherwise the arrow moves within the code.
  */
-export const exitCodeBlock = (dir: "up" | "down"): Command => (state, dispatch) => {
-  const { $head, empty } = state.selection;
-  if (!empty || $head.parent.type !== N.code_block) return false;
-  const code = $head.parent;
-  if (dir === "down") {
-    if (code.textBetween($head.parentOffset, code.content.size).includes("\n")) return false;
-    const after = $head.after();
+export const exitCodeBlock =
+  (dir: "up" | "down"): Command =>
+  (state, dispatch) => {
+    const { $head, empty } = state.selection;
+    if (!empty || $head.parent.type !== N.code_block) return false;
+    const code = $head.parent;
+    const down = dir === "down";
+    const rest = down ? code.textBetween($head.parentOffset, code.content.size) : code.textBetween(0, $head.parentOffset);
+    if (rest.includes("\n")) return false;
     if (dispatch) {
-      // Reuse a paragraph that follows; otherwise add one. Either way the caret goes to its start.
-      const tr = state.doc.nodeAt(after)?.isTextblock ? state.tr : state.tr.insert(after, N.paragraph.create());
-      dispatch(tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView());
+      // Reuse the paragraph next to the block, or add one.
+      const edge = down ? $head.after() : $head.before();
+      const neighbor = down ? state.doc.nodeAt(edge) : state.doc.resolve(edge).nodeBefore;
+      const tr = neighbor?.isTextblock ? state.tr : state.tr.insert(edge, N.paragraph.create());
+      // Down: start of the next paragraph. Up: end of the previous one.
+      const target = down ? edge + 1 : tr.mapping.map(edge) - 1;
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, target)).scrollIntoView());
     }
     return true;
-  }
-  if (code.textBetween(0, $head.parentOffset).includes("\n")) return false;
-  const before = $head.before();
-  if (dispatch) {
-    const prev = state.doc.resolve(before).nodeBefore;
-    let tr = state.tr;
-    if (!(prev && prev.isTextblock)) tr = tr.insert(before, N.paragraph.create());
-    // The new paragraph (or the existing one before) ends right at `before`.
-    const endOfPrev = tr.mapping.map(before) - 1;
-    dispatch(tr.setSelection(TextSelection.create(tr.doc, endOfPrev)).scrollIntoView());
-  }
-  return true;
-};
+  };
 
-/** Turns the current paragraph into a code block, or back into a normal paragraph. */
-export const toggleCodeBlock: Command = (state, dispatch) =>
-  setBlockStyle(state.selection.$from.parent.type === N.code_block ? "paragraph" : "code")(state, dispatch);
+// ---- document settings ----------------------------------------------------------
 
 /** Shows or hides the page number that print and export add to each page. */
 export const togglePageNumbers: Command = (state, dispatch) => {
-  if (dispatch) dispatch(state.tr.setDocAttribute("pageNumbers", !state.doc.attrs.pageNumbers));
+  dispatch?.(state.tr.setDocAttribute("pageNumbers", !state.doc.attrs.pageNumbers));
   return true;
 };
 
 export const pageNumbersOn = (state: EditorState): boolean => !!state.doc.attrs.pageNumbers;
-
-export const insertLineBreak: Command = (state, dispatch) => {
-  if (dispatch) dispatch(state.tr.replaceSelectionWith(N.hard_break.create()).scrollIntoView());
-  return true;
-};
-
-export const insertTab: Command = (state, dispatch) => {
-  if (state.selection.$from.parent.type.spec.code) return false;
-  if (dispatch) dispatch(state.tr.insertText("\t").scrollIntoView());
-  return true;
-};
-
-export const selectAllText: Command = (state, dispatch) => {
-  if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, 0, state.doc.content.size)));
-  return true;
-};
 
 // ---- queries for the toolbar's pressed and selected states -------------------
 
@@ -235,26 +213,20 @@ export function markKey(state: EditorState, type: MarkType): string | null {
 }
 
 export function currentBlockStyle(state: EditorState): BlockStyle {
-  const { $from } = state.selection;
-  const parent = $from.parent;
+  const parent = state.selection.$from.parent;
   if (parent.type === N.heading) return `h${parent.attrs.level}` as BlockStyle;
   if (parent.type === N.code_block) return "code";
-  for (let d = $from.depth; d > 0; d--) if ($from.node(d).type === N.blockquote) return "quote";
-  return "paragraph";
+  return ancestorDepth(state, (t) => t === N.blockquote) ? "quote" : "paragraph";
 }
 
 export function currentAlign(state: EditorState): Align {
   return (state.selection.$from.parent.attrs.align as Align) ?? "left";
 }
 
-export function currentList(state: EditorState): "bullet" | "ordered" | null {
-  const { $from } = state.selection;
-  for (let d = $from.depth; d > 0; d--) {
-    const t = $from.node(d).type;
-    if (t === N.bullet_list) return "bullet";
-    if (t === N.ordered_list) return "ordered";
-  }
-  return null;
+/** The type of the closest list around the selection, or null. */
+export function currentList(state: EditorState): NodeType | null {
+  const depth = ancestorDepth(state, isList);
+  return depth ? state.selection.$from.node(depth).type : null;
 }
 
 // ---- statistics for the status bar ------------------------------------------
@@ -270,19 +242,31 @@ export interface DocStats {
 
 const countWords = (text: string) => (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
 
+// Documents are immutable, so whole-document counts are computed once per version.
+const docCounts = new WeakMap<PMNode, { words: number; chars: number }>();
+
+function counts(doc: PMNode) {
+  let c = docCounts.get(doc);
+  if (!c) {
+    const text = doc.textBetween(0, doc.content.size, " ", " ");
+    c = { words: countWords(text), chars: [...doc.textContent].length };
+    docCounts.set(doc, c);
+  }
+  return c;
+}
+
 export function stats(state: EditorState): DocStats {
-  const words = countWords(state.doc.textBetween(0, state.doc.content.size, " ", " "));
-  const { from, to, empty } = state.selection;
-  const selectedWords = empty ? null : countWords(state.doc.textBetween(from, to, " ", " "));
-  const { $head } = state.selection;
+  const { from, to, empty, $head } = state.selection;
   let paragraph = 0;
-  state.doc.descendants((node: PMNode, pos: number) => {
-    if (pos > $head.pos) return false;
-    if (node.isTextblock) {
-      paragraph++;
-      return false;
-    }
-    return true;
+  state.doc.nodesBetween(0, $head.pos, (node) => {
+    if (!node.isTextblock) return true;
+    paragraph++;
+    return false;
   });
-  return { words, selectedWords, chars: [...state.doc.textContent].length, paragraph: Math.max(1, paragraph), column: $head.parentOffset + 1 };
+  return {
+    ...counts(state.doc),
+    selectedWords: empty ? null : countWords(state.doc.textBetween(from, to, " ", " ")),
+    paragraph: Math.max(1, paragraph),
+    column: $head.parentOffset + 1,
+  };
 }

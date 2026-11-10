@@ -1,17 +1,20 @@
 // Classic menu bar and dropdown menus with keyboard navigation.
 
+import { type Action, shortcutText } from "./action.ts";
 import { dismissable, h, placeBelow } from "./dom.ts";
 
 export type MenuEntry =
-  | { kind?: "item"; label: string; shortcut?: string; run: () => void; enabled?: () => boolean; checked?: () => boolean }
+  | (Action & { kind?: "item" })
   | { kind: "sub"; label: string; items: () => MenuEntry[] | Promise<MenuEntry[]> }
   | { kind: "sep" };
+
+export const SEP: MenuEntry = { kind: "sep" };
 
 export interface TopMenu {
   label: string;
   /** Letter underlined and reachable with Alt+letter. */
   key: string;
-  items: () => MenuEntry[];
+  items: MenuEntry[];
 }
 
 interface OpenMenu {
@@ -72,7 +75,7 @@ export async function openMenu(
       { class: "menu-item", type: "button", role: checked === undefined ? "menuitem" : "menuitemcheckbox", "aria-checked": checked === undefined ? undefined : String(checked), disabled: !enabled },
       h("span", { class: "check", text: checked ? "✓" : "" }),
       h("span", { class: "label", text: entry.label }),
-      h("span", { class: "shortcut", text: entry.shortcut ?? "" }),
+      h("span", { class: "shortcut", text: shortcutText(entry) }),
     );
     btn.addEventListener("mouseenter", closeSub);
     btn.addEventListener("click", () => {
@@ -130,7 +133,7 @@ export function buildMenubar(bar: HTMLElement, menus: TopMenu[]) {
     current = i;
     const btn = buttons[i]!;
     btn.classList.add("open");
-    await openMenu(btn, menus[i]!.items(), {
+    await openMenu(btn, menus[i]!.items, {
       focusFirst,
       onLeft: () => void openAt((i - 1 + menus.length) % menus.length),
       onRight: () => void openAt((i + 1) % menus.length),

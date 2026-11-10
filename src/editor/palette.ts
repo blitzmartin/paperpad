@@ -15,16 +15,18 @@ export interface FontDef {
   name: string;
   /** RTF font family keyword. */
   rtfFamily: "swiss" | "roman" | "modern" | "script";
+  /** CSS font stack, with fallbacks for systems that lack the font. */
+  stack: string;
 }
 
 export const FONTS: readonly FontDef[] = [
-  { key: "arial", label: "Arial", name: "Arial", rtfFamily: "swiss" },
-  { key: "verdana", label: "Verdana", name: "Verdana", rtfFamily: "swiss" },
-  { key: "trebuchet", label: "Trebuchet MS", name: "Trebuchet MS", rtfFamily: "swiss" },
-  { key: "georgia", label: "Georgia", name: "Georgia", rtfFamily: "roman" },
-  { key: "times", label: "Times New Roman", name: "Times New Roman", rtfFamily: "roman" },
-  { key: "courier", label: "Courier New", name: "Courier New", rtfFamily: "modern" },
-  { key: "comic", label: "Comic Sans MS", name: "Comic Sans MS", rtfFamily: "script" },
+  { key: "arial", label: "Arial", name: "Arial", rtfFamily: "swiss", stack: 'Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif' },
+  { key: "verdana", label: "Verdana", name: "Verdana", rtfFamily: "swiss", stack: 'Verdana, "DejaVu Sans", sans-serif' },
+  { key: "trebuchet", label: "Trebuchet MS", name: "Trebuchet MS", rtfFamily: "swiss", stack: '"Trebuchet MS", "Lucida Grande", "DejaVu Sans", sans-serif' },
+  { key: "georgia", label: "Georgia", name: "Georgia", rtfFamily: "roman", stack: 'Georgia, "DejaVu Serif", serif' },
+  { key: "times", label: "Times New Roman", name: "Times New Roman", rtfFamily: "roman", stack: '"Times New Roman", Times, "Liberation Serif", serif' },
+  { key: "courier", label: "Courier New", name: "Courier New", rtfFamily: "modern", stack: '"Courier New", Courier, "Liberation Mono", monospace' },
+  { key: "comic", label: "Comic Sans MS", name: "Comic Sans MS", rtfFamily: "script", stack: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive' },
 ];
 
 /** Font used when text has no font mark. */

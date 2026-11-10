@@ -36,25 +36,17 @@ enum Format {
 }
 
 impl Format {
+    const ALL: [Self; 4] = [Self::Html, Self::Markdown, Self::Text, Self::Rtf];
+    /// Formats PaperPad can open and save back in place.
+    const EDITABLE: [Self; 3] = [Self::Html, Self::Markdown, Self::Text];
+
     fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "html" => Some(Self::Html),
-            "md" => Some(Self::Markdown),
-            "txt" => Some(Self::Text),
-            "rtf" => Some(Self::Rtf),
-            _ => None,
-        }
+        Self::ALL.into_iter().find(|f| f.name() == name)
     }
 
     fn from_path(path: &Path) -> Option<Self> {
         let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-        match ext.as_str() {
-            "html" | "htm" => Some(Self::Html),
-            "md" | "markdown" => Some(Self::Markdown),
-            "txt" | "text" => Some(Self::Text),
-            "rtf" => Some(Self::Rtf),
-            _ => None,
-        }
+        Self::ALL.into_iter().find(|f| f.extensions().contains(&ext.as_str()))
     }
 
     fn name(self) -> &'static str {
@@ -79,14 +71,13 @@ impl Format {
         match self {
             Self::Html => &["html", "htm"],
             Self::Markdown => &["md", "markdown"],
-            Self::Text => &["txt"],
+            Self::Text => &["txt", "text"],
             Self::Rtf => &["rtf"],
         }
     }
 
-    /// Formats PaperPad can open and save back in place.
     fn is_editable(self) -> bool {
-        matches!(self, Self::Html | Self::Markdown | Self::Text)
+        Self::EDITABLE.contains(&self)
     }
 }
 
@@ -226,19 +217,23 @@ fn opened(state: &AppState, path: PathBuf) -> CmdResult<OpenedDoc> {
     })
 }
 
-fn save_dialog(window: &Window, format: Format, suggested: &str) -> Option<PathBuf> {
-    let stem = clean_stem(suggested);
+/// Shows a native Save dialog for one file type. Returns None when the user cancels.
+fn save_dialog(window: &Window, title: &str, label: &str, extensions: &[&str], suggested: &str) -> Option<PathBuf> {
     let path = window
         .dialog()
         .file()
         .set_parent(window)
-        .set_title("Save as")
-        .set_file_name(format!("{stem}.{}", format.extensions()[0]))
-        .add_filter(format.label(), format.extensions())
+        .set_title(title)
+        .set_file_name(format!("{}.{}", clean_stem(suggested), extensions[0]))
+        .add_filter(label, extensions)
         .blocking_save_file()?
         .into_path()
         .ok()?;
-    Some(ensure_extension(path, format.extensions()))
+    Some(ensure_extension(path, extensions))
+}
+
+fn save_dialog_for(window: &Window, format: Format, suggested: &str) -> Option<PathBuf> {
+    save_dialog(window, "Save as", format.label(), format.extensions(), suggested)
 }
 
 // ---------------------------------------------------------------------------
@@ -248,16 +243,12 @@ fn save_dialog(window: &Window, format: Format, suggested: &str) -> Option<PathB
 /// Shows the native Open dialog. Returns None when the user cancels.
 #[tauri::command]
 pub async fn open_document(window: Window, state: State<'_, AppState>) -> CmdResult<Option<OpenedDoc>> {
-    let picked = window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .set_title("Open")
-        .add_filter("All supported", &["html", "htm", "md", "markdown", "txt"])
-        .add_filter(Format::Html.label(), Format::Html.extensions())
-        .add_filter(Format::Markdown.label(), Format::Markdown.extensions())
-        .add_filter(Format::Text.label(), Format::Text.extensions())
-        .blocking_pick_file();
+    let all: Vec<&str> = Format::EDITABLE.iter().flat_map(|f| f.extensions().iter().copied()).collect();
+    let mut dialog = window.dialog().file().set_parent(&window).set_title("Open").add_filter("All supported", &all);
+    for f in Format::EDITABLE {
+        dialog = dialog.add_filter(f.label(), f.extensions());
+    }
+    let picked = dialog.blocking_pick_file();
     let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
         return Ok(None);
     };
@@ -315,7 +306,7 @@ pub async fn save_document_as(
     state: State<'_, AppState>,
 ) -> CmdResult<Option<SavedDoc>> {
     check_size(&content)?;
-    let Some(path) = save_dialog(&window, Format::Html, &suggested_name) else {
+    let Some(path) = save_dialog_for(&window, Format::Html, &suggested_name) else {
         return Ok(None);
     };
     write_atomic(&path, content.as_bytes())?;
@@ -337,14 +328,15 @@ pub async fn export_text(
 ) -> CmdResult<Option<String>> {
     check_size(&content)?;
     let format = Format::from_name(&format).ok_or("Unknown export format")?;
-    let Some(path) = save_dialog(&window, format, &suggested_name) else {
+    let Some(path) = save_dialog_for(&window, format, &suggested_name) else {
         return Ok(None);
     };
     write_atomic(&path, content.as_bytes())?;
     Ok(Some(file_name(&path)))
 }
 
-/// Package part names a .docx produced by PaperPad may contain.
+/// Package part names a .docx produced by PaperPad may contain
+/// (src/export/docx.ts; tests/export.test.ts checks the two stay in sync).
 const DOCX_PARTS: &[&str] = &[
     "[Content_Types].xml",
     "_rels/.rels",
@@ -353,7 +345,7 @@ const DOCX_PARTS: &[&str] = &[
     "word/document.xml",
     "word/styles.xml",
     "word/numbering.xml",
-    "word/settings.xml",
+    "word/footer1.xml",
     "word/_rels/document.xml.rels",
 ];
 
@@ -369,19 +361,9 @@ pub async fn export_docx(window: Window, parts: Vec<ZipPart>, suggested_name: St
     let entries: Vec<(&str, &[u8])> = parts.iter().map(|p| (p.name.as_str(), p.content.as_bytes())).collect();
     let bytes = zip::build(&entries)?;
 
-    let stem = clean_stem(&suggested_name);
-    let picked = window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .set_title("Export as Word document")
-        .set_file_name(format!("{stem}.docx"))
-        .add_filter("Word document", &["docx"])
-        .blocking_save_file();
-    let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
+    let Some(path) = save_dialog(&window, "Export as Word document", "Word document", &["docx"], &suggested_name) else {
         return Ok(None);
     };
-    let path = ensure_extension(path, &["docx"]);
     write_atomic(&path, &bytes)?;
     Ok(Some(file_name(&path)))
 }
@@ -446,6 +428,16 @@ mod tests {
         assert_eq!(clean_stem("../../etc/passwd"), "etcpasswd");
         assert_eq!(clean_stem("  "), "Untitled");
         assert_eq!(clean_stem("Letter to Ada"), "Letter to Ada");
+    }
+
+    #[test]
+    fn formats_are_found_by_name_and_extension() {
+        assert!(Format::from_name("md") == Some(Format::Markdown));
+        assert!(Format::from_name("docx").is_none());
+        assert!(Format::from_path(Path::new("a/Notes.HTM")) == Some(Format::Html));
+        assert!(Format::from_path(Path::new("notes.text")) == Some(Format::Text));
+        assert!(Format::from_path(Path::new("notes.rtf")).is_some_and(|f| !f.is_editable()));
+        assert!(Format::from_path(Path::new("notes")).is_none());
     }
 
     #[test]

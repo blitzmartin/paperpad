@@ -67,6 +67,7 @@ export function showModal(opts: ModalOptions): Promise<string> {
   });
 }
 
-export function alertBox(title: string, message: string) {
-  return showModal({ title, body: message, buttons: [{ id: "ok", label: "OK", primary: true }], cancelId: "ok" });
+/** A dialog with a single OK button. */
+export function alertBox(title: string, body: string | Node) {
+  return showModal({ title, body, buttons: [{ id: "ok", label: "OK", primary: true }], cancelId: "ok" });
 }

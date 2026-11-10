@@ -4,7 +4,7 @@ import type { EditorView } from "prosemirror-view";
 import { findAll, findNext, type FindOptions, replaceAll, replaceOne } from "../editor/find.ts";
 import { h } from "./dom.ts";
 
-export function createFindPanel(getView: () => EditorView) {
+export function createFindPanel(view: EditorView) {
   let panel: HTMLElement | null = null;
   let findInput: HTMLInputElement;
   let replaceInput: HTMLInputElement;
@@ -21,26 +21,23 @@ export function createFindPanel(getView: () => EditorView) {
   const countMatches = (): void => {
     const q = findInput.value;
     if (!q) return void report("");
-    const n = findAll(getView().state.doc, q, opts()).length;
+    const n = findAll(view.state.doc, q, opts()).length;
     report(n === 0 ? "Not found" : n === 1 ? "1 match" : `${n} matches`);
   };
 
   const step = (backwards: boolean) => {
-    const view = getView();
     const tr = findNext(view.state, findInput.value, opts(), backwards);
     if (tr) view.dispatch(tr);
     else report("Not found");
   };
 
   const replace = () => {
-    const view = getView();
     const tr = replaceOne(view.state, findInput.value, replaceInput.value, opts());
     if (tr) view.dispatch(tr);
     countMatches();
   };
 
   const replaceEvery = (): void => {
-    const view = getView();
     const result = replaceAll(view.state, findInput.value, replaceInput.value, opts());
     if (!result) return void report("Not found");
     view.dispatch(result.tr);
@@ -50,7 +47,7 @@ export function createFindPanel(getView: () => EditorView) {
   const close = () => {
     panel?.remove();
     panel = null;
-    getView().focus();
+    view.focus();
   };
 
   const build = () => {
@@ -112,17 +109,13 @@ export function createFindPanel(getView: () => EditorView) {
         document.getElementById("workspace")!.append(panel);
       }
       // Seed the search with the selected text, as most editors do.
-      const { state } = getView();
+      const { state } = view;
       const selected = state.doc.textBetween(state.selection.from, state.selection.to, " ");
       if (selected && selected.length < 200 && !selected.includes("\n")) findInput.value = selected;
       const target = focusReplace ? replaceInput : findInput;
       target.focus();
       target.select();
       countMatches();
-    },
-    close,
-    get isOpen() {
-      return panel !== null;
     },
   };
 }

@@ -7,7 +7,7 @@
 
 import { DOMParser as PMDOMParser, DOMSerializer, type Node as PMNode } from "prosemirror-model";
 import { COLORS, DEFAULT_FONT, DEFAULT_SIZE, FONTS, HEADING_SIZES, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
-import { schema } from "../editor/schema.ts";
+import { MAX_INDENT, schema } from "../editor/schema.ts";
 import { toPlainText } from "../export/text.ts";
 
 export type EditableFormat = "html" | "md" | "txt";
@@ -18,29 +18,26 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 }
 
-const fontStacks: Record<string, string> = {
-  swiss: "sans-serif",
-  roman: "serif",
-  modern: "monospace",
-  script: "cursive",
-};
+/** Prints a page number in the bottom margin. Used by saved files and by the app's own print. */
+export const PAGE_NUMBER_CSS = "@page{@bottom-center{content:counter(page);font:9pt Arial,sans-serif;color:#555}}";
 
 /** Stylesheet embedded in saved files so they look right in a browser. */
-function standaloneCss(): string {
+function standaloneCss(pageNumbers: boolean): string {
   const rules = [
     `body{margin:0;background:#f4f1ea}`,
-    `article.paperpad{box-sizing:border-box;max-width:21cm;margin:2rem auto;padding:2.5cm;background:#fff;color:#1a1a1a;font-family:"${DEFAULT_FONT.name}",sans-serif;font-size:${DEFAULT_SIZE}pt;line-height:1.4;white-space:pre-wrap;tab-size:4}`,
+    `article.paperpad{box-sizing:border-box;max-width:21cm;margin:2rem auto;padding:2.5cm;background:#fff;color:#1a1a1a;font-family:${DEFAULT_FONT.stack};font-size:${DEFAULT_SIZE}pt;line-height:1.4;white-space:pre-wrap;tab-size:4}`,
     `article.paperpad p{margin:0 0 .5em}`,
     ...Object.entries(HEADING_SIZES).map(([l, s]) => `article.paperpad h${l}{font-size:${s}pt;margin:.8em 0 .4em}`),
     `article.paperpad blockquote{margin:0 0 .5em;padding-left:1em;border-left:3px solid #999}`,
     `article.paperpad pre{font-family:"Courier New",monospace;font-size:10pt;background:#f2f2f2;padding:.5em}`,
     `.al-center{text-align:center}.al-right{text-align:right}.al-justify{text-align:justify}`,
-    ...Array.from({ length: 8 }, (_, i) => `.ind-${i + 1}{margin-left:${(i + 1) * 0.5}in}`),
-    ...FONTS.map((f) => `.ff-${f.key}{font-family:"${f.name}",${fontStacks[f.rtfFamily]}}`),
+    ...Array.from({ length: MAX_INDENT }, (_, i) => `.ind-${i + 1}{margin-left:${(i + 1) * 0.5}in}`),
+    ...FONTS.map((f) => `.ff-${f.key}{font-family:${f.stack}}`),
     ...SIZES.map((s) => `.fs-${s}{font-size:${s}pt}`),
     ...COLORS.map((c) => `.c-${c.key}{color:${c.hex}}`),
     ...HIGHLIGHTS.map((c) => `.hl-${c.key}{background:${c.hex};color:#1a1a1a}`),
   ];
+  if (pageNumbers) rules.push(PAGE_NUMBER_CSS);
   return rules.join("\n");
 }
 
@@ -49,8 +46,6 @@ export function serializeHtml(doc: PMNode, title: string): string {
   const holder = document.createElement("div");
   holder.appendChild(fragment);
   const pageNumbers = !!doc.attrs.pageNumbers;
-  // Browsers print the page number in the bottom margin when this rule is present.
-  const pageRule = pageNumbers ? "\n@page{@bottom-center{content:counter(page);font:9pt Arial,sans-serif;color:#555}}" : "";
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -58,7 +53,7 @@ export function serializeHtml(doc: PMNode, title: string): string {
     '<meta charset="utf-8">',
     `<meta name="generator" content="PaperPad ${VERSION}">`,
     `<title>${escapeHtml(title)}</title>`,
-    `<style>\n${standaloneCss()}${pageRule}\n</style>`,
+    `<style>\n${standaloneCss(pageNumbers)}\n</style>`,
     "</head>",
     "<body>",
     `<article class="paperpad"${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,

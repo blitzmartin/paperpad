@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { TextSelection } from "prosemirror-state";
+import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../src/editor/actions.ts";
 import { exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
+import { keyLabel, MOD_LABEL } from "../src/ui/keys.ts";
 import { schema } from "../src/editor/schema.ts";
 import { newState } from "../src/editor/setup.ts";
 import { toDocxParts } from "../src/export/docx.ts";
@@ -84,4 +87,25 @@ test("page numbers toggle on the document and reach RTF and DOCX", () => {
 
   togglePageNumbers(state, (tr) => (state = state.apply(tr)));
   assert.equal(pageNumbersOn(state), false);
+});
+
+test("every key is bound to one action at most", () => {
+  const keys = [...(Object.values(EDITOR_ACTIONS) as EditorAction[]).flatMap((a) => a.keys ?? []), ...BLOCK_STYLES.flatMap((b) => (b.key ? [b.key] : []))];
+  assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), []);
+});
+
+test("shortcut labels read like menu shortcuts", () => {
+  assert.equal(keyLabel("Shift-Mod-x"), `${MOD_LABEL}+Shift+X`);
+  assert.equal(keyLabel("Mod-Alt-1"), `${MOD_LABEL}+Alt+1`);
+  assert.equal(keyLabel("Mod--"), `${MOD_LABEL}+-`);
+  assert.equal(keyLabel("Mod-+"), `${MOD_LABEL}++`);
+  assert.equal(keyLabel("F1"), "F1");
+});
+
+test("every DOCX part is allowed by the Rust export command", () => {
+  const rust = readFileSync(new URL("../src-tauri/src/commands.rs", import.meta.url), "utf8");
+  // The list ends at the "];" line (part names such as "[Content_Types].xml" contain brackets).
+  const allowed = /const DOCX_PARTS[^=]*=\s*&\[([\s\S]*?)\n\];/.exec(rust)![1]!.match(/"[^"]+"/g)!.map((s) => s.slice(1, -1));
+  const doc = N.doc.create({ pageNumbers: true }, [p("hi")]);
+  assert.deepEqual(toDocxParts(doc, "t").map((x) => x.name).filter((n) => !allowed.includes(n)), []);
 });

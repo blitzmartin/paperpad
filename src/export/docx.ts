@@ -1,0 +1,259 @@
+// Word (.docx) export, built by hand from the Office Open XML spec
+// (ECMA-376, WordprocessingML). This file produces the XML parts; Rust
+// packs them into a ZIP (src-tauri/src/zip.rs). No docx library needed.
+//
+// Element order inside w:pPr and w:rPr matters to Word, so the builders
+// below emit children in schema order.
+
+import type { Mark, Node as PMNode } from "prosemirror-model";
+import { COLORS, DEFAULT_FONT, DEFAULT_SIZE, findFont, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
+
+export interface DocxPart {
+  name: string;
+  content: string;
+}
+
+const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+const INDENT_TWIPS = 720;
+
+/** Escapes text for XML and drops characters XML 1.0 does not allow. */
+export function xmlEscape(s: string): string {
+  return s
+    .replace(/[^\u0009\u000A\u000D -퟿-�\u{10000}-\u{10FFFF}]/gu, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+const hexOf = (list: typeof COLORS, key: string) => list.find((c) => c.key === key)?.hex.slice(1);
+
+// ---- runs ---------------------------------------------------------------------
+
+function runProps(marks: readonly Mark[]): string {
+  let fonts = "", b = "", i = "", strike = "", color = "", sz = "", u = "", shd = "";
+  for (const m of marks) {
+    switch (m.type.name) {
+      case "strong": b = "<w:b/>"; break;
+      case "em": i = "<w:i/>"; break;
+      case "strike": strike = "<w:strike/>"; break;
+      case "underline": u = '<w:u w:val="single"/>'; break;
+      case "code": fonts = rFonts("Courier New"); break;
+      case "font": fonts = rFonts(findFont(m.attrs.key)?.name ?? DEFAULT_FONT.name); break;
+      case "size": {
+        const half = Number(m.attrs.key) * 2;
+        sz = `<w:sz w:val="${half}"/><w:szCs w:val="${half}"/>`;
+        break;
+      }
+      case "color": {
+        const hex = hexOf(COLORS, m.attrs.key);
+        if (hex) color = `<w:color w:val="${hex}"/>`;
+        break;
+      }
+      case "highlight": {
+        const hex = hexOf(HIGHLIGHTS, m.attrs.key);
+        if (hex) shd = `<w:shd w:val="clear" w:color="auto" w:fill="${hex}"/>`;
+        break;
+      }
+    }
+  }
+  const all = fonts + b + i + strike + color + sz + u + shd;
+  return all ? `<w:rPr>${all}</w:rPr>` : "";
+}
+
+function rFonts(name: string) {
+  const n = xmlEscape(name);
+  return `<w:rFonts w:ascii="${n}" w:hAnsi="${n}" w:cs="${n}"/>`;
+}
+
+function textRuns(text: string, rPr: string): string {
+  // Tabs and newlines are separate elements in WordprocessingML.
+  return text
+    .split(/(\t|\n)/)
+    .map((piece) => {
+      if (piece === "\t") return `<w:r>${rPr}<w:tab/></w:r>`;
+      if (piece === "\n") return `<w:r>${rPr}<w:br/></w:r>`;
+      if (!piece) return "";
+      return `<w:r>${rPr}<w:t xml:space="preserve">${xmlEscape(piece)}</w:t></w:r>`;
+    })
+    .join("");
+}
+
+function inline(block: PMNode): string {
+  let out = "";
+  block.forEach((child) => {
+    if (child.isText) out += textRuns(child.text!, runProps(child.marks));
+    else if (child.type.name === "hard_break") out += "<w:r><w:br/></w:r>";
+  });
+  return out;
+}
+
+// ---- paragraphs ---------------------------------------------------------------
+
+interface ParaOpts {
+  style?: string;
+  numId?: number;
+  ilvl?: number;
+  indent?: number;
+  align?: string;
+  border?: boolean;
+}
+
+const JC: Record<string, string> = { center: "center", right: "right", justify: "both" };
+
+function paragraph(body: string, o: ParaOpts): string {
+  let pPr = "";
+  if (o.style) pPr += `<w:pStyle w:val="${o.style}"/>`;
+  if (o.numId) pPr += `<w:numPr><w:ilvl w:val="${o.ilvl ?? 0}"/><w:numId w:val="${o.numId}"/></w:numPr>`;
+  if (o.border) pPr += '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>';
+  if (o.indent && !o.numId) pPr += `<w:ind w:left="${o.indent * INDENT_TWIPS}"/>`;
+  if (o.align && JC[o.align]) pPr += `<w:jc w:val="${JC[o.align]}"/>`;
+  return `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ""}${body}</w:p>`;
+}
+
+interface ListNum {
+  numId: number;
+  ordered: boolean;
+  start: number;
+  ilvl: number;
+}
+
+function documentBody(doc: PMNode): { body: string; lists: ListNum[] } {
+  const out: string[] = [];
+  const lists: ListNum[] = [];
+
+  const walk = (node: PMNode, quote: number, list?: { numId: number; ilvl: number }) => {
+    const name = node.type.name;
+    if (name === "paragraph" || name === "heading") {
+      out.push(
+        paragraph(inline(node), {
+          style: name === "heading" ? `Heading${node.attrs.level}` : quote ? "Quote" : undefined,
+          numId: list?.numId,
+          ilvl: list?.ilvl,
+          indent: (node.attrs.indent as number) + quote,
+          align: node.attrs.align as string,
+        }),
+      );
+    } else if (name === "code_block") {
+      out.push(paragraph(textRuns(node.textContent, ""), { style: "Code", indent: quote }));
+    } else if (name === "horizontal_rule") {
+      out.push(paragraph("", { border: true }));
+    } else if (name === "blockquote") {
+      node.forEach((c) => walk(c, quote + 1, list));
+    } else if (name === "bullet_list" || name === "ordered_list") {
+      const ordered = name === "ordered_list";
+      const ilvl = list ? Math.min(list.ilvl + 1, 8) : 0;
+      // Every list gets its own w:num so numbered lists restart at their start value.
+      const numId = lists.length + 1;
+      lists.push({ numId, ordered, start: ordered ? (node.attrs.order as number) : 1, ilvl });
+      node.forEach((item) => {
+        item.forEach((child, _o, i) => {
+          if (child.isTextblock && i === 0) walk(child, quote, { numId, ilvl });
+          else if (child.isTextblock) out.push(paragraph(inline(child), { style: "ListParagraph", indent: ilvl + 1 }));
+          else walk(child, quote, { numId, ilvl });
+        });
+      });
+    } else {
+      node.forEach((c) => walk(c, quote, list));
+    }
+  };
+
+  doc.forEach((n) => walk(n, 0));
+  if (!out.length) out.push("<w:p/>");
+  return { body: out.join("\n"), lists };
+}
+
+// ---- static parts ---------------------------------------------------------------
+
+function numberingXml(lists: ListNum[]): string {
+  const levels = (ordered: boolean) =>
+    Array.from({ length: 9 }, (_, l) => {
+      // Decimal at every level, matching how the editor numbers nested lists.
+      const fmt = ordered ? "decimal" : "bullet";
+      const text = ordered ? `%${l + 1}.` : ["•", "◦", "▪"][l % 3];
+      const left = INDENT_TWIPS * (l + 1);
+      return `<w:lvl w:ilvl="${l}"><w:start w:val="1"/><w:numFmt w:val="${fmt}"/><w:lvlText w:val="${text}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${left}" w:hanging="360"/></w:pPr></w:lvl>`;
+    }).join("");
+  const abstract =
+    `<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>${levels(false)}</w:abstractNum>` +
+    `<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>${levels(true)}</w:abstractNum>`;
+  const nums = lists
+    .map((l) => {
+      const override = l.ordered ? `<w:lvlOverride w:ilvl="${l.ilvl}"><w:startOverride w:val="${l.start}"/></w:lvlOverride>` : "";
+      return `<w:num w:numId="${l.numId}"><w:abstractNumId w:val="${l.ordered ? 1 : 0}"/>${override}</w:num>`;
+    })
+    .join("");
+  return `${XML_HEAD}<w:numbering ${W_NS}>${abstract}${nums}</w:numbering>`;
+}
+
+function stylesXml(): string {
+  const font = rFonts(DEFAULT_FONT.name);
+  const heading = (level: number) => {
+    const half = HEADING_SIZES[level]! * 2;
+    return `<w:style w:type="paragraph" w:styleId="Heading${level}"><w:name w:val="heading ${level}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="${level - 1}"/></w:pPr><w:rPr><w:b/><w:sz w:val="${half}"/><w:szCs w:val="${half}"/></w:rPr></w:style>`;
+  };
+  return (
+    `${XML_HEAD}<w:styles ${W_NS}>` +
+    `<w:docDefaults><w:rPrDefault><w:rPr>${font}<w:sz w:val="${DEFAULT_SIZE * 2}"/><w:szCs w:val="${DEFAULT_SIZE * 2}"/><w:lang w:val="en-US"/></w:rPr></w:rPrDefault>` +
+    `<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>` +
+    `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>` +
+    heading(1) + heading(2) + heading(3) +
+    `<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:pBdr><w:left w:val="single" w:sz="12" w:space="8" w:color="999999"/></w:pBdr></w:pPr><w:rPr><w:i/></w:rPr></w:style>` +
+    `<w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0"/></w:pPr><w:rPr>${rFonts("Courier New")}<w:sz w:val="20"/></w:rPr></w:style>` +
+    `<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style>` +
+    `</w:styles>`
+  );
+}
+
+function coreXml(title: string): string {
+  return (
+    `${XML_HEAD}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
+    `<dc:title>${xmlEscape(title)}</dc:title></cp:coreProperties>`
+  );
+}
+
+const CONTENT_TYPES =
+  `${XML_HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+  `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+  `<Default Extension="xml" ContentType="application/xml"/>` +
+  `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>` +
+  `<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>` +
+  `<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>` +
+  `<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>` +
+  `<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>` +
+  `</Types>`;
+
+const ROOT_RELS =
+  `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>` +
+  `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>` +
+  `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>` +
+  `</Relationships>`;
+
+const DOC_RELS =
+  `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+  `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>` +
+  `</Relationships>`;
+
+const APP_XML =
+  `${XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>PaperPad</Application></Properties>`;
+
+// A4 portrait with 2.54 cm margins.
+const SECT_PR = `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>`;
+
+export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
+  const { body, lists } = documentBody(doc);
+  const document = `${XML_HEAD}<w:document ${W_NS}><w:body>${body}${SECT_PR}</w:body></w:document>`;
+  return [
+    { name: "[Content_Types].xml", content: CONTENT_TYPES },
+    { name: "_rels/.rels", content: ROOT_RELS },
+    { name: "docProps/core.xml", content: coreXml(title) },
+    { name: "docProps/app.xml", content: APP_XML },
+    { name: "word/document.xml", content: document },
+    { name: "word/styles.xml", content: stylesXml() },
+    { name: "word/numbering.xml", content: numberingXml(lists) },
+    { name: "word/_rels/document.xml.rels", content: DOC_RELS },
+  ];
+}

@@ -1,0 +1,30 @@
+[package]
+name = "paperpad"
+version = "0.1.0"
+description = "A fast, light, local-first word processor with a modern retro 90s look"
+authors = ["Paper Board Labs"]
+license = "PolyForm-Noncommercial-1.0.0"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "paperpad_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+# No extra Tauri features: no tray, no protocol-asset, no devtools in release.
+tauri = { version = "2.12", features = [] }
+# Used from Rust only. No dialog permission is granted to the webview.
+tauri-plugin-dialog = "2.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

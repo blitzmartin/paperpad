@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "The only capability. The webview never receives file paths, filesystem access, shell, network or window APIs. It can call PaperPad's own commands and print.",
+  "windows": ["main"],
+  "permissions": [
+    "core:webview:allow-print",
+    "allow-open-document",
+    "allow-open-recent",
+    "allow-list-recent",
+    "allow-save-document",
+    "allow-save-document-as",
+    "allow-export-text",
+    "allow-export-docx",
+    "allow-set-document-state",
+    "allow-recovery-write",
+    "allow-recovery-read",
+    "allow-recovery-clear"
+  ]
+}

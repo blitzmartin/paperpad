@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>PaperPad</title>
+    <link rel="stylesheet" href="/src/styles/main.css" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="chrome">
+        <nav id="menubar" class="menubar" role="menubar" aria-label="Main menu"></nav>
+        <div id="toolbar" class="toolbar" role="toolbar" aria-label="Formatting"></div>
+      </header>
+      <main id="workspace" class="workspace">
+        <div id="page" class="page"></div>
+      </main>
+      <footer id="statusbar" class="statusbar" aria-live="polite"></footer>
+    </div>
+    <div id="modal-root"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

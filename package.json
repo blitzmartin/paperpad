@@ -1,0 +1,35 @@
+{
+  "name": "paperpad",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A fast, light, local-first word processor with a modern retro 90s look.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "~2.12.4",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-markdown": "^1.13.9",
+    "prosemirror-model": "^1.25.13",
+    "prosemirror-schema-basic": "^1.2.5",
+    "prosemirror-schema-list": "^1.6.0",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.9"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "~2.12.4",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.7"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

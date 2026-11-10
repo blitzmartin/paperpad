@@ -101,7 +101,10 @@ export function buildToolbar(root: HTMLElement, app: AppApi): (state: EditorStat
     sep(),
     group(undoBtn, redoBtn),
     sep(),
-    group(button("find", "Find and replace", () => app.find(), { shortcut: mod("F") })),
+    group(
+      button("find", "Find and replace", () => app.find(), { shortcut: mod("F") }),
+      commandButton("pages", "Page numbers", cmd.togglePageNumbers, undefined, cmd.pageNumbersOn),
+    ),
     h("span", { class: "tb-spacer" }),
     group(themeBtn),
   );

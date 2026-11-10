@@ -37,6 +37,7 @@ export const ICONS = {
   outdent: `${lines(9, [4, 7.5, 11, 14.5], 8)}<path class="ka" d="M6.25 6.5 3 9.25l3.25 2.75"/>`,
   indent: `${lines(9, [4, 7.5, 11, 14.5], 8)}<path class="ka" d="M3 6.5l3.25 2.75L3 12"/>`,
   rule: `${lines(4, [4.5, 14], 12)}<rect class="f" x="2" y="8.6" width="16" height="2.5" rx=".6"/>`,
+  pages: `<path class="p k" d="M4.5 2.5h7.25l3.75 3.75v11.25h-11z"/><path class="k" d="M11.75 2.5v3.75h3.75"/><text class="t tbo" x="10" y="15.25">1</text>`,
   code: `<path class="p k" d="M2.75 4.25h14.5v11.5H2.75z"/><path class="ka" d="M7.25 7.75 4.75 10l2.5 2.25M12.75 7.75l2.5 2.25-2.5 2.25"/>`,
   clear: `<path class="r k" d="M3.25 12.25l6.5-6.5 5 5-4 4H6.25z"/><path class="p k" d="M3.25 12.25l3-3 5 5-1 1H6.25z"/><rect class="f" x="11" y="16" width="6" height="1.5"/>`,
   sun: `<circle class="y k" cx="10" cy="10" r="3.5"/><path class="k" d="M10 1.75v2.5M10 15.75v2.5M1.75 10h2.5M15.75 10h2.5M4.2 4.2l1.75 1.75M14.05 14.05l1.75 1.75M4.2 15.8l1.75-1.75M14.05 5.95 15.8 4.2"/>`,

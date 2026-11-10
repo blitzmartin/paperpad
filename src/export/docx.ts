@@ -241,19 +241,42 @@ const APP_XML =
   `${XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>PaperPad</Application></Properties>`;
 
 // A4 portrait with 2.54 cm margins.
-const SECT_PR = `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>`;
+const sectPr = (footer: boolean) =>
+  `<w:sectPr>${footer ? '<w:footerReference w:type="default" r:id="rId3"/>' : ""}<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>`;
+
+// A centered PAGE field: Word and LibreOffice replace it with the page number.
+const FOOTER_XML =
+  `${XML_HEAD}<w:ftr ${W_NS}><w:p><w:pPr><w:jc w:val="center"/></w:pPr>` +
+  `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>` +
+  `<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>`;
 
 export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
   const { body, lists } = documentBody(doc);
-  const document = `${XML_HEAD}<w:document ${W_NS}><w:body>${body}${SECT_PR}</w:body></w:document>`;
-  return [
-    { name: "[Content_Types].xml", content: CONTENT_TYPES },
+  const pageNumbers = !!doc.attrs.pageNumbers;
+  const document = `${XML_HEAD}<w:document ${W_NS}><w:body>${body}${sectPr(pageNumbers)}</w:body></w:document>`;
+  // With page numbers, the footer part must also be declared in the content types and the relationships.
+  const contentTypes = pageNumbers
+    ? CONTENT_TYPES.replace(
+        "</Types>",
+        '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>',
+      )
+    : CONTENT_TYPES;
+  const docRels = pageNumbers
+    ? DOC_RELS.replace(
+        "</Relationships>",
+        '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>',
+      )
+    : DOC_RELS;
+  const parts: DocxPart[] = [
+    { name: "[Content_Types].xml", content: contentTypes },
     { name: "_rels/.rels", content: ROOT_RELS },
     { name: "docProps/core.xml", content: coreXml(title) },
     { name: "docProps/app.xml", content: APP_XML },
     { name: "word/document.xml", content: document },
     { name: "word/styles.xml", content: stylesXml() },
     { name: "word/numbering.xml", content: numberingXml(lists) },
-    { name: "word/_rels/document.xml.rels", content: DOC_RELS },
+    { name: "word/_rels/document.xml.rels", content: docRels },
   ];
+  if (pageNumbers) parts.push({ name: "word/footer1.xml", content: FOOTER_XML });
+  return parts;
 }

@@ -16,12 +16,11 @@ export const MOD_LABEL = isMac ? "Cmd" : "Ctrl";
 /**
  * A horizontal rule is a leaf node. If it is the last thing in the document,
  * there is no text position after it, so the caret cannot get past it and
- * the rule is hard to reach. Keep a paragraph at the end at all times.
+ * the rule is hard to reach. Add a paragraph after it. Lists and quotes
+ * contain text, so they need nothing.
  */
 function trailingBlock(doc: PMNode): PMNode | null {
-  const last = doc.lastChild;
-  if (!last || last.isTextblock) return null;
-  return schema.nodes.paragraph.create();
+  return doc.lastChild?.isLeaf ? schema.nodes.paragraph.create() : null;
 }
 
 const keepTrailingParagraph = new Plugin({

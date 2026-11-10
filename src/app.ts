@@ -17,6 +17,7 @@ import { h } from "./ui/dom.ts";
 import { createFindPanel } from "./ui/find-panel.ts";
 import { buildMenubar, type MenuEntry, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
+import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
 import { currentTheme, loadZoom, onThemeChange, saveZoom, type Theme, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
@@ -69,6 +70,7 @@ export function startApp() {
   function refresh(state: EditorState) {
     updateToolbar(state);
     status.update(state);
+    setPrintPageNumbers(cmd.pageNumbersOn(state));
     const dirty = !state.doc.eq(info.saved);
     if (dirty !== lastDirty || info.name !== lastTitle) {
       lastDirty = dirty;
@@ -410,6 +412,8 @@ export function startApp() {
         { label: "Zoom in", shortcut: mod("+"), run: () => changeZoom(1) },
         { label: "Zoom out", shortcut: mod("-"), run: () => changeZoom(-1) },
         { label: "Actual size", shortcut: mod("0"), run: () => changeZoom(0) },
+        { kind: "sep" },
+        { label: "Page numbers", run: () => run(cmd.togglePageNumbers), checked: () => cmd.pageNumbersOn(view.state) },
       ],
     },
     {

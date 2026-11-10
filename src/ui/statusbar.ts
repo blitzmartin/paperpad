@@ -34,7 +34,8 @@ export function createStatusBar(root: HTMLElement) {
         const s = stats(pending!);
         pending = null;
         position.textContent = `Par ${s.paragraph}, Col ${s.column}`;
-        words.textContent = `${nf.format(s.words)} ${s.words === 1 ? "word" : "words"}`;
+        const total = `${nf.format(s.words)} ${s.words === 1 ? "word" : "words"}`;
+        words.textContent = s.selectedWords === null ? total : `${nf.format(s.selectedWords)} of ${total} selected`;
         chars.textContent = `${nf.format(s.chars)} chars`;
       });
     },

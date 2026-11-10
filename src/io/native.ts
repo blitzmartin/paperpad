@@ -76,7 +76,7 @@ export function parseHtml(html: string): PMNode {
   const doc = PMDOMParser.fromSchema(schema).parse(ours ?? dom.body, { preserveWhitespace: ours ? true : undefined });
   // The page number setting is a document attribute, stored on the article element.
   const pageNumbers = ours?.getAttribute("data-page-numbers") === "on";
-  return pageNumbers ? doc.type.create({ pageNumbers: true }, doc.content, doc.marks) : doc;
+  return pageNumbers ? doc.type.create({ pageNumbers: true }, doc.content) : doc;
 }
 
 export function parsePlainText(text: string): PMNode {

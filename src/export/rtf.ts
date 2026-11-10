@@ -36,10 +36,12 @@ COLORS.forEach((c, i) => colorIndex.set("c:" + c.key, i + 1));
 HIGHLIGHTS.forEach((c, i) => colorIndex.set("h:" + c.key, COLORS.length + i + 1));
 const fontIndex = new Map(FONTS.map((f, i) => [f.key, i]));
 
-function header(): string {
+function header(pageNumbers: boolean): string {
   const fonts = FONTS.map((f, i) => `{\\f${i}\\f${f.rtfFamily}\\fcharset0 ${f.name};}`).join("");
   const colors = ";" + [...COLORS, ...HIGHLIGHTS].map((c) => hexToRtf(c.hex)).join("");
-  return `{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1{\\fonttbl${fonts}}{\\colortbl${colors}}\\viewkind4\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n`;
+  // A footer group with the current page number, centered and small.
+  const footer = pageNumbers ? "{\\footer\\pard\\qc\\fs18 \\chpgn\\par}" : "";
+  return `{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1{\\fonttbl${fonts}}{\\colortbl${colors}}\\viewkind4\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n${footer}`;
 }
 
 interface Base {
@@ -115,7 +117,7 @@ function walk(node: PMNode, indent: number, out: string[]) {
 }
 
 export function toRtf(doc: PMNode): string {
-  const out: string[] = [header()];
+  const out: string[] = [header(!!doc.attrs.pageNumbers)];
   doc.forEach((n) => walk(n, 0, out));
   out.push("}\n");
   return out.join("");

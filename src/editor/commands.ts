@@ -172,15 +172,9 @@ export const exitCodeBlock = (dir: "up" | "down"): Command => (state, dispatch) 
     if (code.textBetween($head.parentOffset, code.content.size).includes("\n")) return false;
     const after = $head.after();
     if (dispatch) {
-      const next = state.doc.nodeAt(after);
-      let tr = state.tr;
-      let target = after + 1;
-      if (next && next.isTextblock) {
-        // Caret goes to the start of the following paragraph.
-      } else {
-        tr = tr.insert(after, N.paragraph.create());
-      }
-      dispatch(tr.setSelection(TextSelection.create(tr.doc, target)).scrollIntoView());
+      // Reuse a paragraph that follows; otherwise add one. Either way the caret goes to its start.
+      const tr = state.doc.nodeAt(after)?.isTextblock ? state.tr : state.tr.insert(after, N.paragraph.create());
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView());
     }
     return true;
   }
@@ -267,14 +261,19 @@ export function currentList(state: EditorState): "bullet" | "ordered" | null {
 
 export interface DocStats {
   words: number;
+  /** Words in the selection, or null when nothing is selected. */
+  selectedWords: number | null;
   chars: number;
   paragraph: number;
   column: number;
 }
 
+const countWords = (text: string) => (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
+
 export function stats(state: EditorState): DocStats {
-  const text = state.doc.textBetween(0, state.doc.content.size, " ", " ");
-  const words = (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
+  const words = countWords(state.doc.textBetween(0, state.doc.content.size, " ", " "));
+  const { from, to, empty } = state.selection;
+  const selectedWords = empty ? null : countWords(state.doc.textBetween(from, to, " ", " "));
   const { $head } = state.selection;
   let paragraph = 0;
   state.doc.descendants((node: PMNode, pos: number) => {
@@ -285,5 +284,5 @@ export function stats(state: EditorState): DocStats {
     }
     return true;
   });
-  return { words, chars: [...state.doc.textContent].length, paragraph: Math.max(1, paragraph), column: $head.parentOffset + 1 };
+  return { words, selectedWords, chars: [...state.doc.textContent].length, paragraph: Math.max(1, paragraph), column: $head.parentOffset + 1 };
 }

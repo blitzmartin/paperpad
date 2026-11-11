@@ -5,14 +5,14 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 
 - **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, horizontal line, code block, clear formatting.
 - **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
-- **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print, and the status bar shows which page you are on. Infinite view is one long sheet.
-- **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off, and a document opened in it loses them the next time it is saved.
+- **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print and the status bar shows which page you are on. Infinite view is one long sheet.
+- **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off and a document opened in it loses them the next time it is saved.
 - **Word count** in the status bar, with the count for the selection when text is selected.
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Spell checking** you can turn on and off in View, Options. It checks the Windows display language only, so words in other languages are underlined too.
 - **Light and dark mode**, following your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
-- **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links, and it stays readable as plain text, so your writing is never locked in.
+- **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links and it stays readable as plain text, so your writing is never locked in.
 - **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
 - **Crash recovery:** unsaved work is kept in the app data folder every 15 seconds.
@@ -39,7 +39,16 @@ Grab the installer for your system from the [Releases](../../releases) page:
 | macOS 11 or later | `.dmg` (`aarch64` for Apple Silicon, `x64` for Intel) |
 | Linux | `.AppImage`, `.deb` or `.rpm` |
 
-The builds are not code signed yet. On Windows choose "More info" then "Run anyway" in SmartScreen. On macOS right-click the app, choose Open, then confirm.
+The builds are not code signed yet, so the system warns you the first time you open PaperPad.
+
+- **Windows:** choose "More info" then "Run anyway" in SmartScreen.
+- **macOS:** drag PaperPad to Applications and try to open it once. Then go to System Settings, Privacy and Security, scroll down and choose "Open Anyway". If macOS says the app "is damaged and can't be opened", it only means it is not signed. Run this in Terminal, then open it again:
+
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/PaperPad.app
+  ```
+
+  This removes the "downloaded from the internet" flag from PaperPad only. It does not change any security setting on your Mac.
 
 ## Build from source
 

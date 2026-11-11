@@ -35,6 +35,8 @@ export const PALETTES = [
   { id: "lilac", label: "Lilac" },
 ] as const;
 export type PaletteId = (typeof PALETTES)[number]["id"];
+/** Color theme until the user picks one. The unthemed :root rules in main.css are Sage; other palettes override them. */
+export const DEFAULT_PALETTE: PaletteId = "slate";
 
 const THEME_KEY = "paperpad.theme";
 const PALETTE_KEY = "paperpad.palette";
@@ -57,7 +59,7 @@ const isPalette = (v: unknown): v is PaletteId => PALETTES.some((p) => p.id === 
 
 export function currentPalette(): PaletteId {
   const v = document.documentElement.dataset.palette;
-  return isPalette(v) ? v : "sage";
+  return isPalette(v) ? v : DEFAULT_PALETTE;
 }
 
 function apply(theme: Theme) {
@@ -72,7 +74,7 @@ function applyPalette(id: PaletteId) {
 
 export function initTheme() {
   const palette = loadPref(PALETTE_KEY);
-  applyPalette(isPalette(palette) ? palette : "sage");
+  applyPalette(isPalette(palette) ? palette : DEFAULT_PALETTE);
   apply(storedTheme() ?? systemTheme());
   media.addEventListener("change", () => {
     if (!storedTheme()) apply(systemTheme());

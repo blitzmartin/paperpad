@@ -15,8 +15,8 @@ test("every palette entry has a CSS class (run scripts/palette-css.ts if this fa
   assert.deepEqual(missing, []);
 });
 
-test("new documents start in Trebuchet MS; files that name no font stay Arial", () => {
+test("new documents start in Atkinson Hyperlegible; files that name no font stay Arial", () => {
   assert.equal(DEFAULT_FONT.key, "arial");
   assert.ok(findFont(NEW_DOCUMENT_FONT));
-  assert.equal(NEW_DOCUMENT_FONT, "trebuchet");
+  assert.equal(NEW_DOCUMENT_FONT, "atkinson");
 });

@@ -969,28 +969,30 @@ input {
 .al-justify {
   text-align: justify;
 }
-.ind-1 {
+/* Scoped to .doc so they outrank the style rules (.doc p, .doc h1 ...), whose
+ * margin shorthand would otherwise reset margin-left to 0. */
+.doc .ind-1 {
   margin-left: 0.5in;
 }
-.ind-2 {
+.doc .ind-2 {
   margin-left: 1in;
 }
-.ind-3 {
+.doc .ind-3 {
   margin-left: 1.5in;
 }
-.ind-4 {
+.doc .ind-4 {
   margin-left: 2in;
 }
-.ind-5 {
+.doc .ind-5 {
   margin-left: 2.5in;
 }
-.ind-6 {
+.doc .ind-6 {
   margin-left: 3in;
 }
-.ind-7 {
+.doc .ind-7 {
   margin-left: 3.5in;
 }
-.ind-8 {
+.doc .ind-8 {
   margin-left: 4in;
 }
 

@@ -36,10 +36,11 @@ function hexToRtf(hex: string) {
 const colorIndex = new Map<string, number>();
 COLORS.forEach((c, i) => colorIndex.set("c:" + c.key, i + 1));
 HIGHLIGHTS.forEach((c, i) => colorIndex.set("h:" + c.key, COLORS.length + i + 1));
-const fontIndex = new Map(FONTS.map((f, i) => [f.key, i]));
+// Keyed by string: lookups use font keys read from the document, which may be unknown.
+const fontIndex = new Map<string, number>(FONTS.map((f, i) => [f.key, i]));
 
 /** The document's default font and paragraph styles, set by toRtf before anything is written. */
-let docFontKey = FONTS[0]!.key;
+let docFontKey: string = FONTS[0]!.key;
 let styles = resolveStyles({});
 let rule = resolveRule({});
 

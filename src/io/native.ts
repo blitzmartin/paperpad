@@ -61,7 +61,8 @@ function standaloneCss(doc: PMNode): string {
     `${a} hr{width:${rule.width}%;height:0;margin:${rule.before}pt auto ${rule.after}pt;border:0;border-top:${rule.thickness}pt ${rule.line} ${ruleColor}}`,
     `${a}>:first-child{margin-top:0}`,
     `.al-center{text-align:center}.al-right{text-align:right}.al-justify{text-align:justify}`,
-    ...Array.from({ length: MAX_INDENT }, (_, i) => `.ind-${i + 1}{margin-left:${(i + 1) * 0.5}in}`),
+    // Scoped like the style rules above so their margin shorthand does not reset the indent.
+    ...Array.from({ length: MAX_INDENT }, (_, i) => `${a} .ind-${i + 1}{margin-left:${(i + 1) * 0.5}in}`),
     ...FONTS.map((f) => `.ff-${f.key}{font-family:${f.stack}}`),
     ...SIZES.map((s) => `.fs-${s}{font-size:${s}pt}`),
     ...COLORS.map((c) => `.c-${c.key}{color:${c.hex}}`),

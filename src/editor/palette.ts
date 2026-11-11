@@ -24,7 +24,7 @@ export interface FontDef {
   bundled?: boolean;
 }
 
-export const FONTS: readonly FontDef[] = [
+export const FONTS = [
   { key: "arial", label: "Arial", name: "Arial", rtfFamily: "swiss", stack: 'Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif' },
   { key: "verdana", label: "Verdana", name: "Verdana", rtfFamily: "swiss", stack: 'Verdana, "DejaVu Sans", sans-serif' },
   { key: "trebuchet", label: "Trebuchet MS", name: "Trebuchet MS", rtfFamily: "swiss", stack: '"Trebuchet MS", "Lucida Grande", "DejaVu Sans", sans-serif' },
@@ -37,12 +37,15 @@ export const FONTS: readonly FontDef[] = [
   { key: "inter", label: "Inter", name: "Inter", rtfFamily: "swiss", stack: 'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif', bundled: true },
   { key: "literata", label: "Literata", name: "Literata", rtfFamily: "roman", stack: 'Literata, Georgia, "DejaVu Serif", serif', bundled: true },
   { key: "jetbrains", label: "JetBrains Mono", name: "JetBrains Mono", rtfFamily: "modern", stack: '"JetBrains Mono", "Courier New", "Liberation Mono", monospace', bundled: true },
-];
+] as const satisfies readonly FontDef[];
+
+/** A key from FONTS. Values read from files or storage are checked with findFont first. */
+export type FontKey = (typeof FONTS)[number]["key"];
 
 /** Font of documents made before the default font could be chosen. Keep it first: old files depend on it. */
 export const DEFAULT_FONT = FONTS[0]!;
 /** Font new documents start with until a default font is chosen in View, Options. */
-export const NEW_DOCUMENT_FONT = "trebuchet";
+export const NEW_DOCUMENT_FONT: FontKey = "atkinson";
 
 export const SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
 /** Size of text with no size mark, before styles existed. Normal's size is in styles.ts. */

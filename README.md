@@ -12,6 +12,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Word count** in the status bar, with the count for the selection when text is selected.
 - **Paragraph styles** in Format, Styles: choose the font, size, color, bold, italic and underline, line spacing and spacing of Normal text, Heading 1 to 3, Quote and Code, and the color, thickness, line (solid, dashed, dotted or double), width and spacing of the horizontal rule. A change reaches every paragraph with that style (or every rule), even ones written earlier. In headings, quotes and code the font, size and color always come from the style, so the toolbar greys them out there and the document stays consistent. Styles are saved with each document. New documents start from the default styles with your default font.
 - **Default font** of your choice in View, Options (Trebuchet MS until you choose one). New documents start with it and it is saved with each document, so a file looks the same on any computer.
+- **Fonts:** Arial, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New and Comic Sans MS from your system, plus four open fonts that come with PaperPad and look the same on every computer: Atkinson Hyperlegible (made for easy reading), Inter, Literata (for long texts) and JetBrains Mono (the font of the Code style and of code inside a line). A saved file or a Word or RTF export opened on a computer without them uses a similar font instead.
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Spell checking** you can turn on in View, Options (it is off until you do). It checks the Windows display language only, so words in other languages are underlined too.
 - **Themes:** Sage, Gray, Sand, Slate, Rose and Lilac, all soft on the eyes, from View, Theme. Each one has a light and a dark mode, which follows your system until you choose.
@@ -84,5 +85,7 @@ Publishing a release on GitHub builds the installers for every platform and atta
 PaperPad is source available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 You may use, study, modify and share it for any noncommercial purpose, including personal use and use by charities, schools and public bodies. Commercial use is not permitted.
 For a commercial license, contact paperboardlabs@gmail.com.
+
+The bundled fonts are not part of that license. Atkinson Hyperlegible (Braille Institute of America), Inter (The Inter Project Authors), Literata (The Literata Project Authors) and JetBrains Mono (The JetBrains Mono Project Authors) are free software under the [SIL Open Font License 1.1](https://openfontlicense.org). Each one ships unmodified with its license in [public/fonts](public/fonts).
 
 Copyright © 2026 Paper Board Labs.

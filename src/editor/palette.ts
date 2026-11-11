@@ -17,6 +17,11 @@ export interface FontDef {
   rtfFamily: "swiss" | "roman" | "modern" | "script";
   /** CSS font stack, with fallbacks for systems that lack the font. */
   stack: string;
+  /**
+   * Comes with PaperPad instead of the system. Saved files and Word or RTF
+   * exports opened elsewhere use the fallbacks unless that computer has it.
+   */
+  bundled?: boolean;
 }
 
 export const FONTS: readonly FontDef[] = [
@@ -27,6 +32,11 @@ export const FONTS: readonly FontDef[] = [
   { key: "times", label: "Times New Roman", name: "Times New Roman", rtfFamily: "roman", stack: '"Times New Roman", Times, "Liberation Serif", serif' },
   { key: "courier", label: "Courier New", name: "Courier New", rtfFamily: "modern", stack: '"Courier New", Courier, "Liberation Mono", monospace' },
   { key: "comic", label: "Comic Sans MS", name: "Comic Sans MS", rtfFamily: "script", stack: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive' },
+  // Bundled with the app (src/styles/fonts.css, public/fonts), the same on every system.
+  { key: "atkinson", label: "Atkinson Hyperlegible", name: "Atkinson Hyperlegible", rtfFamily: "swiss", stack: '"Atkinson Hyperlegible", Verdana, "DejaVu Sans", sans-serif', bundled: true },
+  { key: "inter", label: "Inter", name: "Inter", rtfFamily: "swiss", stack: 'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif', bundled: true },
+  { key: "literata", label: "Literata", name: "Literata", rtfFamily: "roman", stack: 'Literata, Georgia, "DejaVu Serif", serif', bundled: true },
+  { key: "jetbrains", label: "JetBrains Mono", name: "JetBrains Mono", rtfFamily: "modern", stack: '"JetBrains Mono", "Courier New", "Liberation Mono", monospace', bundled: true },
 ];
 
 /** Font of documents made before the default font could be chosen. Keep it first: old files depend on it. */

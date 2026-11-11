@@ -9,7 +9,7 @@ test("documents without styles use the defaults, in the document's font", () => 
   const st = resolveStyles({ font: "georgia", styles: null });
   assert.equal(st.normal.font.key, "georgia");
   assert.equal(st.h2.font.key, "georgia", "headings follow Normal's font");
-  assert.equal(st.code.font.key, "courier");
+  assert.equal(st.code.font.key, "jetbrains", "code is JetBrains Mono, which comes with the app");
   assert.equal(st.h1.size, 24);
   assert.equal(st.h2.size, 18);
   assert.equal(st.h3.size, 14);

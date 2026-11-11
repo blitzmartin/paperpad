@@ -39,6 +39,9 @@ const hexOf = (list: typeof COLORS, key: string) => list.find((c) => c.key === k
 
 // ---- runs ---------------------------------------------------------------------
 
+/** The Code style's font, which code inside a line uses too. Set by toDocxParts. */
+let codeFont = "JetBrains Mono";
+
 function runProps(marks: readonly Mark[]): string {
   let fonts = "", b = "", i = "", strike = "", color = "", sz = "", u = "", shd = "";
   for (const m of marks) {
@@ -47,7 +50,7 @@ function runProps(marks: readonly Mark[]): string {
       case "em": i = "<w:i/>"; break;
       case "strike": strike = "<w:strike/>"; break;
       case "underline": u = '<w:u w:val="single"/>'; break;
-      case "code": fonts = rFonts("Courier New"); break;
+      case "code": fonts = rFonts(codeFont); break;
       case "font": {
         const f = findFont(m.attrs.key);
         if (f) fonts = rFonts(f.name);
@@ -374,6 +377,7 @@ const FOOTER_XML =
   `<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>`;
 
 export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
+  codeFont = resolveStyles(doc.attrs).code.font.name;
   const { body, lists, media } = documentBody(doc);
   const pageNumbers = !!doc.attrs.pageNumbers;
   const document = `${XML_HEAD}<w:document ${W_NS} xmlns:wp="${WP_NS}"><w:body>${body}${sectPr(pageNumbers)}</w:body></w:document>`;

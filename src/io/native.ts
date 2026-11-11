@@ -47,6 +47,7 @@ function standaloneCss(doc: PMNode): string {
     ...([1, 2, 3] as const).map((l) => `${a} h${l}{${styleCss(st[`h${l}`])};margin:${st[`h${l}`].before}pt 0 ${st[`h${l}`].after}pt;${deco(st[`h${l}`])}}`),
     `${a} blockquote{${styleCss(st.quote)};margin:${st.quote.before}pt 0 0;padding-left:1em;border-left:3px solid #999}`,
     `${a} blockquote p{margin:0 0 ${st.quote.after}pt;${deco(st.quote)}}`,
+    `${a} code{font-family:${st.code.font.stack}}`,
     `${a} pre{${styleCss(st.code)};margin:${st.code.before}pt 0 ${st.code.after}pt;background:#f2f2f2;padding:.5em;${deco(st.code)}}`,
     `${a} figure.img{margin:${st.normal.before}pt 0 ${st.normal.after}pt;line-height:0;break-inside:avoid}`,
     `${a} figure.img img{max-width:100%;height:auto;max-height:25.7cm;object-fit:contain;vertical-align:top}`,

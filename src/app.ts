@@ -528,7 +528,9 @@ export function startApp() {
   }
 
   // Pages are measured with the document fonts, so measure again once they load.
+  // The bundled fonts load only when first used, so also after every later load.
   void document.fonts?.ready.then(relayoutPages);
+  document.fonts?.addEventListener("loadingdone", relayoutPages);
 
   // ---- dialogs ------------------------------------------------------------------------------
 
@@ -548,6 +550,7 @@ export function startApp() {
           h("p", { text: "A fast, light and local-first word processor." }),
           h("p", { text: "Copyright © 2026 Paper Board Labs." }),
           h("p", { text: "Free for personal and other noncommercial use under the PolyForm Noncommercial License 1.0.0." }),
+          h("p", { text: "Includes the fonts Atkinson Hyperlegible, Inter, Literata and JetBrains Mono, under the SIL Open Font License 1.1." }),
           h("p", { text: "Your documents never leave your computer." }),
         ),
       ),

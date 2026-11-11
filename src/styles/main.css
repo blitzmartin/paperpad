@@ -7,6 +7,9 @@
  * The CSP forbids inline styles, so every visual state is a class here.
  */
 
+/* The fonts that come with the app. Must stay before every rule. */
+@import "./fonts.css";
+
 /* ---- tokens ---------------------------------------------------------------- */
 
 :root {
@@ -706,7 +709,7 @@ input {
   text-decoration: var(--s-quote-deco, none);
 }
 .doc pre {
-  font-family: var(--s-code-font, "Courier New", monospace);
+  font-family: var(--s-code-font, "JetBrains Mono", "Courier New", monospace);
   font-size: var(--s-code-size, 10pt);
   font-weight: var(--s-code-weight);
   font-style: var(--s-code-style);
@@ -719,8 +722,9 @@ input {
   background: var(--chrome-2);
   border-radius: 3px;
 }
+/* Code inside a line uses the Code style's font. */
 .doc code {
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--s-code-font, "JetBrains Mono", "Courier New", monospace);
   font-size: 0.95em;
 }
 .doc ul,
@@ -1012,6 +1016,35 @@ input {
 }
 .ff-comic {
   font-family: "Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive;
+}
+.ff-atkinson {
+  font-family:
+    "Atkinson Hyperlegible",
+    Verdana,
+    "DejaVu Sans",
+    sans-serif;
+}
+.ff-inter {
+  font-family:
+    Inter,
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+.ff-literata {
+  font-family:
+    Literata,
+    Georgia,
+    "DejaVu Serif",
+    serif;
+}
+.ff-jetbrains {
+  font-family:
+    "JetBrains Mono",
+    "Courier New",
+    "Liberation Mono",
+    monospace;
 }
 .doc .fs-8 {
   font-size: 8pt;

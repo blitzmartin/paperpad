@@ -63,7 +63,7 @@ function runControls(marks: readonly Mark[], base: ResolvedStyle): string {
       case "em": c += "\\i"; break;
       case "underline": c += "\\ul"; break;
       case "strike": c += "\\strike"; break;
-      case "code": font = "courier"; break;
+      case "code": font = styles.code.font.key; break;
       case "font": font = m.attrs.key; break;
       case "size": size = Number(m.attrs.key); break;
       case "color": c += `\\cf${colorIndex.get("c:" + m.attrs.key) ?? 0}`; break;

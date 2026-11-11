@@ -38,10 +38,13 @@ export async function openMenu(
   const el = h("div", { class: "window menu", role: "menu" });
   const items: HTMLButtonElement[] = [];
   let sub: OpenMenu | null = null;
+  /** The entry whose submenu is open or opening. */
+  let subOwner: HTMLElement | null = null;
 
   const closeSub = () => {
     sub?.close();
     sub = null;
+    subOwner = null;
   };
 
   for (const entry of list) {
@@ -51,9 +54,18 @@ export async function openMenu(
     }
     if (entry.kind === "sub") {
       const btn = h("button", { class: "menu-item has-sub", type: "button", role: "menuitem", "aria-haspopup": "true" }, h("span", { class: "check" }), h("span", { class: "label", text: entry.label }), h("span", { class: "shortcut", text: "▸" }));
+      // Moving from one submenu entry to another swaps the open submenu.
       const openSub = async (focus: boolean) => {
-        if (sub) return;
-        sub = await openMenu(btn, entry.items(), { side: "right", focusFirst: focus, onLeft: () => { closeSub(); btn.focus(); } });
+        if (subOwner === btn) {
+          if (focus) sub?.el.querySelector<HTMLButtonElement>(".menu-item:not(:disabled)")?.focus();
+          return;
+        }
+        closeSub();
+        subOwner = btn;
+        const opened = await openMenu(btn, entry.items(), { side: "right", focusFirst: focus, onLeft: () => { closeSub(); btn.focus(); } });
+        // The pointer moved on while the items were loading (Open recent asks the backend).
+        if (subOwner !== btn) return opened.close();
+        sub = opened;
       };
       btn.addEventListener("mouseenter", () => void openSub(false));
       btn.addEventListener("click", () => void openSub(true));
@@ -118,7 +130,9 @@ export async function openMenu(
     },
   };
   // Only the root menu listens for outside clicks; it closes the whole stack.
-  if (!stack.length) undismiss = dismissable(el, closeAllMenus, [anchor, ...stack.map((m) => m.el)]);
+  // The stack is read on each click: submenus open after this menu, and a
+  // click in one of them is not an outside click.
+  if (!stack.length) undismiss = dismissable(el, closeAllMenus, () => [anchor, ...stack.map((m) => m.el)]);
   stack.push(menu);
   if (opts.focusFirst !== false) items.find((b) => !b.disabled)?.focus();
   return menu;

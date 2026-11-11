@@ -20,11 +20,16 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = 
   return el;
 }
 
-/** Closes a floating element on outside click or Escape. Returns a disposer. */
-export function dismissable(el: HTMLElement, close: () => void, except: HTMLElement[] = []): () => void {
+/**
+ * Closes a floating element on outside click or Escape. Returns a disposer.
+ * `except` can be a function, read on each click, for elements that appear
+ * later (like submenus).
+ */
+export function dismissable(el: HTMLElement, close: () => void, except: HTMLElement[] | (() => HTMLElement[]) = []): () => void {
   const onDown = (e: MouseEvent) => {
     const t = e.target as Node;
-    if (!el.contains(t) && !except.some((x) => x.contains(t))) close();
+    const inside = typeof except === "function" ? except() : except;
+    if (!el.contains(t) && !inside.some((x) => x.contains(t))) close();
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {

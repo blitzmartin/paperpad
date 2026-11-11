@@ -76,3 +76,15 @@ test("docx parts are escaped and complete", () => {
   assert.match(numbering, /<w:startOverride w:val="3"\/>/);
   assert.equal(xmlEscape("a\u0001b"), "ab");
 });
+
+test("the document's default font is used by the docx and rtf exports", () => {
+  const sample = sampleDoc();
+  const georgia = sample.type.create({ ...sample.attrs, font: "georgia" }, sample.content);
+  const styles = (d: typeof sample) => toDocxParts(d, "t").find((p) => p.name === "word/styles.xml")!.content;
+  assert.match(styles(sample), /<w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial"/, "documents without a font stay Arial");
+  assert.match(styles(georgia), /<w:rPrDefault><w:rPr><w:rFonts w:ascii="Georgia"/);
+  assert.match(toRtf(sample), /\\deff0\\/);
+  const rtf = toRtf(georgia);
+  assert.match(rtf, /\\deff3\\/, "Georgia is font 3 in the font table");
+  assert.match(rtf, /\{\\f3\\fs24 /, "unmarked text is written in Georgia");
+});

@@ -29,7 +29,7 @@ export const FONTS: readonly FontDef[] = [
   { key: "comic", label: "Comic Sans MS", name: "Comic Sans MS", rtfFamily: "script", stack: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive' },
 ];
 
-/** Font used when text has no font mark. */
+/** Font of documents made before the default font could be chosen. */
 export const DEFAULT_FONT = FONTS[0]!;
 
 export const SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
@@ -71,6 +71,8 @@ export const HIGHLIGHTS: readonly ColorDef[] = [
 ];
 
 export const findFont = (key: unknown) => FONTS.find((f) => f.key === key);
+/** A document's own default font (the doc node's font attribute). */
+export const docFont = (key: unknown): FontDef => findFont(key) ?? DEFAULT_FONT;
 export const findColor = (key: unknown) => COLORS.find((c) => c.key === key);
 export const findHighlight = (key: unknown) => HIGHLIGHTS.find((c) => c.key === key);
 export const isSize = (n: unknown): n is number => typeof n === "number" && SIZES.includes(n);

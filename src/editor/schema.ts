@@ -9,6 +9,7 @@ import { bulletList, listItem, orderedList } from "prosemirror-schema-list";
 import {
   colorFromCss,
   COLORS,
+  DEFAULT_FONT,
   findColor,
   findFont,
   findHighlight,
@@ -147,7 +148,8 @@ highlight.parseDOM = [...(highlight.parseDOM ?? []), { tag: "mark", getAttrs: ()
 export const schema = new Schema({
   nodes: {
     // pageNumbers: print and export add a page number at the bottom of each page.
-    doc: { ...doc, attrs: { pageNumbers: { default: false } } },
+    // font: the font of text with no font mark, a key from FONTS.
+    doc: { ...doc, attrs: { pageNumbers: { default: false }, font: { default: DEFAULT_FONT.key } } },
     paragraph,
     heading,
     blockquote,

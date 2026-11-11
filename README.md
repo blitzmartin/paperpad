@@ -8,9 +8,10 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print and the status bar shows which page you are on. Infinite view is one long sheet.
 - **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off and a document opened in it loses them the next time it is saved.
 - **Word count** in the status bar, with the count for the selection when text is selected.
+- **Default font** of your choice in View, Options. New documents start with it and it is saved with each document, so a file looks the same on any computer.
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Spell checking** you can turn on and off in View, Options. It checks the Windows display language only, so words in other languages are underlined too.
-- **Light and dark mode**, following your system until you choose.
+- **Themes:** Sage, Gray, Sand, Slate, Rose and Lilac, all soft on the eyes, from View, Theme. Each one has a light and a dark mode, which follows your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
 - **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links and it stays readable as plain text, so your writing is never locked in.
 - **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.

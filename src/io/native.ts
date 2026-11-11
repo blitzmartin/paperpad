@@ -6,7 +6,7 @@
 // everything else, so a hostile .html file cannot inject script or styles.
 
 import { DOMParser as PMDOMParser, DOMSerializer, type Node as PMNode } from "prosemirror-model";
-import { COLORS, DEFAULT_FONT, DEFAULT_SIZE, FONTS, HEADING_SIZES, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
+import { COLORS, DEFAULT_SIZE, docFont, type FontDef, FONTS, HEADING_SIZES, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
 import { MAX_INDENT, schema } from "../editor/schema.ts";
 import { toPlainText } from "../export/text.ts";
 
@@ -22,10 +22,10 @@ function escapeHtml(s: string) {
 export const PAGE_NUMBER_CSS = "@page{@bottom-center{content:counter(page);font:9pt Arial,sans-serif;color:#555}}";
 
 /** Stylesheet embedded in saved files so they look right in a browser. */
-function standaloneCss(pageNumbers: boolean): string {
+function standaloneCss(pageNumbers: boolean, font: FontDef): string {
   const rules = [
     `body{margin:0;background:#f4f1ea}`,
-    `article.paperpad{box-sizing:border-box;max-width:21cm;margin:2rem auto;padding:2.5cm;background:#fff;color:#1a1a1a;font-family:${DEFAULT_FONT.stack};font-size:${DEFAULT_SIZE}pt;line-height:1.4;white-space:pre-wrap;tab-size:4}`,
+    `article.paperpad{box-sizing:border-box;max-width:21cm;margin:2rem auto;padding:2.5cm;background:#fff;color:#1a1a1a;font-family:${font.stack};font-size:${DEFAULT_SIZE}pt;line-height:1.4;white-space:pre-wrap;tab-size:4}`,
     `article.paperpad p{margin:0 0 .5em}`,
     ...Object.entries(HEADING_SIZES).map(([l, s]) => `article.paperpad h${l}{font-size:${s}pt;margin:.8em 0 .4em}`),
     `article.paperpad blockquote{margin:0 0 .5em;padding-left:1em;border-left:3px solid #999}`,
@@ -46,6 +46,7 @@ export function serializeHtml(doc: PMNode, title: string): string {
   const holder = document.createElement("div");
   holder.appendChild(fragment);
   const pageNumbers = !!doc.attrs.pageNumbers;
+  const font = docFont(doc.attrs.font);
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -53,32 +54,37 @@ export function serializeHtml(doc: PMNode, title: string): string {
     '<meta charset="utf-8">',
     `<meta name="generator" content="PaperPad ${VERSION}">`,
     `<title>${escapeHtml(title)}</title>`,
-    `<style>\n${standaloneCss(pageNumbers)}\n</style>`,
+    `<style>\n${standaloneCss(pageNumbers, font)}\n</style>`,
     "</head>",
     "<body>",
-    `<article class="paperpad"${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,
+    `<article class="paperpad" data-font="${font.key}"${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,
     "</body>",
     "</html>",
     "",
   ].join("\n");
 }
 
-export function parseHtml(html: string): PMNode {
+/**
+ * `font` is the default font for HTML that is not ours. Our own files name
+ * theirs, and files from before the font setting were always Arial.
+ */
+export function parseHtml(html: string, font: string): PMNode {
   // DOMParser builds an inert document: no scripts run, nothing loads.
   const dom = new DOMParser().parseFromString(html, "text/html");
   const ours = dom.querySelector("article.paperpad");
   // Our own files keep tabs and repeated spaces; foreign HTML is normalized.
   const doc = PMDOMParser.fromSchema(schema).parse(ours ?? dom.body, { preserveWhitespace: ours ? true : undefined });
-  // The page number setting is a document attribute, stored on the article element.
+  // The page number and font settings are document attributes, stored on the article element.
   const pageNumbers = ours?.getAttribute("data-page-numbers") === "on";
-  return pageNumbers ? doc.type.create({ pageNumbers: true }, doc.content) : doc;
+  const key = docFont(ours ? ours.getAttribute("data-font") : font).key;
+  return doc.type.create({ pageNumbers, font: key }, doc.content);
 }
 
-export function parsePlainText(text: string): PMNode {
+export function parsePlainText(text: string, font: string): PMNode {
   const lines = text.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n");
   return schema.node(
     "doc",
-    null,
+    { font: docFont(font).key },
     lines.map((l) => schema.node("paragraph", null, l ? [schema.text(l)] : [])),
   );
 }
@@ -87,14 +93,17 @@ export function parsePlainText(text: string): PMNode {
 // which keeps startup fast for the common case.
 const markdown = () => import("../export/markdown.ts");
 
-export async function parseDocument(content: string, format: EditableFormat): Promise<PMNode> {
+/** `font` is the default font for files that do not name one (see parseHtml). */
+export async function parseDocument(content: string, format: EditableFormat, font: string): Promise<PMNode> {
   switch (format) {
     case "html":
-      return parseHtml(content);
-    case "md":
-      return (await markdown()).fromMarkdown(content);
+      return parseHtml(content, font);
+    case "md": {
+      const doc = (await markdown()).fromMarkdown(content);
+      return doc.type.create({ ...doc.attrs, font: docFont(font).key }, doc.content);
+    }
     case "txt":
-      return parsePlainText(content);
+      return parsePlainText(content, font);
   }
 }
 

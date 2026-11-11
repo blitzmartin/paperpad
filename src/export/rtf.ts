@@ -5,7 +5,7 @@
 // Spec: Microsoft "Rich Text Format (RTF) Specification, version 1.9.1".
 
 import type { Mark, Node as PMNode } from "prosemirror-model";
-import { COLORS, DEFAULT_FONT, DEFAULT_SIZE, FONTS, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
+import { COLORS, DEFAULT_SIZE, docFont, FONTS, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
 
 const TWIPS_PER_INDENT = 720; // half an inch
 
@@ -36,12 +36,15 @@ COLORS.forEach((c, i) => colorIndex.set("c:" + c.key, i + 1));
 HIGHLIGHTS.forEach((c, i) => colorIndex.set("h:" + c.key, COLORS.length + i + 1));
 const fontIndex = new Map(FONTS.map((f, i) => [f.key, i]));
 
+/** The document's default font, set by toRtf before anything is written. */
+let docFontKey = FONTS[0]!.key;
+
 function header(pageNumbers: boolean): string {
   const fonts = FONTS.map((f, i) => `{\\f${i}\\f${f.rtfFamily}\\fcharset0 ${f.name};}`).join("");
   const colors = ";" + [...COLORS, ...HIGHLIGHTS].map((c) => hexToRtf(c.hex)).join("");
   // A footer group with the current page number, centered and small.
   const footer = pageNumbers ? "{\\footer\\pard\\qc\\fs18 \\chpgn\\par}" : "";
-  return `{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1{\\fonttbl${fonts}}{\\colortbl${colors}}\\viewkind4\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n${footer}`;
+  return `{\\rtf1\\ansi\\ansicpg1252\\deff${fontIndex.get(docFontKey) ?? 0}\\uc1{\\fonttbl${fonts}}{\\colortbl${colors}}\\viewkind4\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n${footer}`;
 }
 
 interface Base {
@@ -51,7 +54,7 @@ interface Base {
 }
 
 function runControls(marks: readonly Mark[], base: Base): string {
-  let font = base.font ?? DEFAULT_FONT.key;
+  let font = base.font ?? docFontKey;
   let size = base.size ?? DEFAULT_SIZE;
   let c = base.bold ? "\\b" : "";
   for (const m of marks) {
@@ -117,6 +120,7 @@ function walk(node: PMNode, indent: number, out: string[]) {
 }
 
 export function toRtf(doc: PMNode): string {
+  docFontKey = docFont(doc.attrs.font).key;
   const out: string[] = [header(!!doc.attrs.pageNumbers)];
   doc.forEach((n) => walk(n, 0, out));
   out.push("}\n");

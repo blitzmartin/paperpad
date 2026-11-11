@@ -6,7 +6,7 @@
 // below emit children in schema order.
 
 import type { Mark, Node as PMNode } from "prosemirror-model";
-import { COLORS, DEFAULT_FONT, DEFAULT_SIZE, findFont, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
+import { COLORS, DEFAULT_SIZE, docFont, findFont, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
 
 export interface DocxPart {
   name: string;
@@ -40,7 +40,11 @@ function runProps(marks: readonly Mark[]): string {
       case "strike": strike = "<w:strike/>"; break;
       case "underline": u = '<w:u w:val="single"/>'; break;
       case "code": fonts = rFonts("Courier New"); break;
-      case "font": fonts = rFonts(findFont(m.attrs.key)?.name ?? DEFAULT_FONT.name); break;
+      case "font": {
+        const f = findFont(m.attrs.key);
+        if (f) fonts = rFonts(f.name);
+        break;
+      }
       case "size": {
         const half = Number(m.attrs.key) * 2;
         sz = `<w:sz w:val="${half}"/><w:szCs w:val="${half}"/>`;
@@ -187,8 +191,9 @@ function numberingXml(lists: ListNum[]): string {
   return `${XML_HEAD}<w:numbering ${W_NS}>${abstract}${nums}</w:numbering>`;
 }
 
-function stylesXml(): string {
-  const font = rFonts(DEFAULT_FONT.name);
+/** `fontName` is the document's default font, set on the docDefaults. */
+function stylesXml(fontName: string): string {
+  const font = rFonts(fontName);
   const heading = (level: number) => {
     const half = HEADING_SIZES[level]! * 2;
     return `<w:style w:type="paragraph" w:styleId="Heading${level}"><w:name w:val="heading ${level}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="${level - 1}"/></w:pPr><w:rPr><w:b/><w:sz w:val="${half}"/><w:szCs w:val="${half}"/></w:rPr></w:style>`;
@@ -273,7 +278,7 @@ export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
     { name: "docProps/core.xml", content: coreXml(title) },
     { name: "docProps/app.xml", content: APP_XML },
     { name: "word/document.xml", content: document },
-    { name: "word/styles.xml", content: stylesXml() },
+    { name: "word/styles.xml", content: stylesXml(docFont(doc.attrs.font).name) },
     { name: "word/numbering.xml", content: numberingXml(lists) },
     { name: "word/_rels/document.xml.rels", content: docRels },
   ];

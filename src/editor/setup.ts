@@ -11,6 +11,7 @@ import { actionKeymap } from "./actions.ts";
 import { caretPlugin } from "./caret.ts";
 import * as cmd from "./commands.ts";
 import { arrowOverBreak, pagesPlugin } from "./pages.ts";
+import { docFont } from "./palette.ts";
 import { schema } from "./schema.ts";
 
 /**
@@ -60,6 +61,9 @@ function plugins(): Plugin[] {
   ];
 }
 
+/** An empty document in the given default font. */
+export const blankDoc = (font: string): PMNode => schema.nodes.doc.createAndFill({ font: docFont(font).key })!;
+
 export function newState(doc?: PMNode): EditorState {
   // Documents opened from file may end with a rule, so add the paragraph here too.
   const para = doc && trailingBlock(doc);
@@ -72,12 +76,13 @@ export function createView(mount: HTMLElement, onChange: (state: EditorState) =>
     state: newState(),
     // No spellcheck here: ProseMirror would reset it on every update.
     // View > Options sets it (see initSpelling in ui/options.ts).
-    attributes: {
-      class: "doc",
+    // The document's default font is a class, like any other font.
+    attributes: (state) => ({
+      class: `doc ff-${docFont(state.doc.attrs.font).key}`,
       "aria-label": "Document",
       role: "textbox",
       "aria-multiline": "true",
-    },
+    }),
     dispatchTransaction(tr: Transaction) {
       view.updateState(view.state.apply(tr));
       onChange(view.state);

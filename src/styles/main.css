@@ -94,6 +94,231 @@
   color-scheme: dark;
 }
 
+/* Other color themes (View, Theme). Each has a light and a dark version and
+ * keeps the same soft contrast as Sage. Tokens not listed keep their values. */
+/* Gray: plain grayscale, icons included. */
+:root[data-palette="gray"]:not([data-theme="dark"]) {
+  --chrome: #d9d9d9;
+  --chrome-2: #cccccc;
+  --hi: #f7f7f7;
+  --lo: #8f8f8f;
+  --edge: #3f3f3f;
+  --text: #1f1f1f;
+  --muted: #5e5e5e;
+  --accent: #555555;
+  --accent-ink: #ffffff;
+  --accent-soft: #d0d0d0;
+  --desk: #8f8f8f;
+  --desk-dots: #858585;
+  --paper: #fdfdfd;
+  --ink: #1f1f1f;
+  --paper-edge: #2e2e2e;
+  --selection: #d6d6d6;
+  --icon-paper: #fdfdfd;
+  --icon-blue: #6e6e6e;
+  --icon-yellow: #c4c4c4;
+  --icon-red: #8c8c8c;
+  --icon-green: #7c7c7c;
+  --icon-silver: #bdbdbd;
+  --icon-wood: #9c9c9c;
+  color-scheme: light;
+}
+:root[data-palette="gray"][data-theme="dark"] {
+  --chrome: #2e2e2e;
+  --chrome-2: #282828;
+  --hi: #474747;
+  --lo: #181818;
+  --edge: #0e0e0e;
+  --text: #e4e4e4;
+  --muted: #a0a0a0;
+  --accent: #c2c2c2;
+  --accent-ink: #161616;
+  --accent-soft: #454545;
+  --desk: #1c1c1c;
+  --desk-dots: #232323;
+  --paper: #262626;
+  --ink: #e4e4e4;
+  --paper-edge: #070707;
+  --selection: #4a4a4a;
+  --icon-paper: #dedede;
+  --icon-blue: #a6a6a6;
+  --icon-yellow: #cfcfcf;
+  --icon-red: #999999;
+  --icon-green: #b0b0b0;
+  --icon-silver: #858585;
+  --icon-wood: #8f8f8f;
+  color-scheme: dark;
+}
+/* Sand: warm yellow paper and a terracotta accent. */
+:root[data-palette="sand"]:not([data-theme="dark"]) {
+  --chrome: #e5dcbf;
+  --chrome-2: #d9cead;
+  --hi: #fcf8e6;
+  --lo: #a09473;
+  --edge: #48402b;
+  --text: #2b2619;
+  --muted: #6d644e;
+  --accent: #9a5a3c;
+  --accent-ink: #ffffff;
+  --accent-soft: #ebd3ad;
+  --desk: #b4a479;
+  --desk-dots: #aa9a6f;
+  --paper: #fffdef;
+  --ink: #2b2619;
+  --paper-edge: #3b3322;
+  --selection: #f1ddb2;
+  --icon-paper: #fffdef;
+  color-scheme: light;
+}
+:root[data-palette="sand"][data-theme="dark"] {
+  --chrome: #332e29;
+  --chrome-2: #2c2824;
+  --hi: #4d463f;
+  --lo: #1a1714;
+  --edge: #0f0d0b;
+  --text: #ebe4da;
+  --muted: #a99e90;
+  --accent: #d9a383;
+  --accent-ink: #1e140e;
+  --accent-soft: #4d3a2e;
+  --desk: #221d19;
+  --desk-dots: #2a241f;
+  --paper: #2a2521;
+  --ink: #ece5db;
+  --paper-edge: #080605;
+  --selection: #5c4434;
+  --icon-paper: #e6dfd4;
+  --icon-silver: #8a8178;
+  color-scheme: dark;
+}
+/* Slate: cool blue grays. */
+:root[data-palette="slate"]:not([data-theme="dark"]) {
+  --chrome: #d3d9e0;
+  --chrome-2: #c5ccd5;
+  --hi: #f6f8fb;
+  --lo: #8a929d;
+  --edge: #39414b;
+  --text: #1c2128;
+  --muted: #59626e;
+  --accent: #3b5a85;
+  --accent-ink: #ffffff;
+  --accent-soft: #bccde3;
+  --desk: #7f8fa3;
+  --desk-dots: #758599;
+  --paper: #fdfdff;
+  --ink: #1c2128;
+  --paper-edge: #262d36;
+  --selection: #c6d6ec;
+  --icon-paper: #fdfdff;
+  color-scheme: light;
+}
+:root[data-palette="slate"][data-theme="dark"] {
+  --chrome: #2a2f36;
+  --chrome-2: #242930;
+  --hi: #414852;
+  --lo: #14171b;
+  --edge: #0b0d10;
+  --text: #e1e6ec;
+  --muted: #98a2ae;
+  --accent: #8fb0dc;
+  --accent-ink: #0f1620;
+  --accent-soft: #2e3d52;
+  --desk: #171c23;
+  --desk-dots: #1d232b;
+  --paper: #22272e;
+  --ink: #e2e7ed;
+  --paper-edge: #050608;
+  --selection: #34496a;
+  --icon-paper: #dde3ea;
+  --icon-silver: #7c8590;
+  color-scheme: dark;
+}
+
+/* Rose: dusty pink with a burgundy accent. */
+:root[data-palette="rose"]:not([data-theme="dark"]) {
+  --chrome: #e6d6d9;
+  --chrome-2: #dac7cb;
+  --hi: #fbf5f6;
+  --lo: #a08b90;
+  --edge: #4a3439;
+  --text: #2b1d21;
+  --muted: #6e5a5f;
+  --accent: #8a3a4f;
+  --accent-ink: #ffffff;
+  --accent-soft: #ecc6d0;
+  --desk: #b0939a;
+  --desk-dots: #a68990;
+  --paper: #fffafb;
+  --ink: #2b1d21;
+  --paper-edge: #3b282c;
+  --selection: #f0cdd6;
+  --icon-paper: #fffafb;
+  color-scheme: light;
+}
+:root[data-palette="rose"][data-theme="dark"] {
+  --chrome: #352a2d;
+  --chrome-2: #2e2427;
+  --hi: #4f4044;
+  --lo: #1b1416;
+  --edge: #100b0c;
+  --text: #eee2e5;
+  --muted: #ad9aa0;
+  --accent: #e3a0b3;
+  --accent-ink: #22101a;
+  --accent-soft: #553040;
+  --desk: #241a1d;
+  --desk-dots: #2c2024;
+  --paper: #2b2225;
+  --ink: #efe3e6;
+  --paper-edge: #080506;
+  --selection: #64384a;
+  --icon-paper: #e9dee1;
+  --icon-silver: #8c7d82;
+  color-scheme: dark;
+}
+/* Lilac: soft lavender with a purple accent. */
+:root[data-palette="lilac"]:not([data-theme="dark"]) {
+  --chrome: #dcd6e6;
+  --chrome-2: #cfc8dc;
+  --hi: #f8f6fc;
+  --lo: #948ca3;
+  --edge: #3f3850;
+  --text: #221e2b;
+  --muted: #625b70;
+  --accent: #6a4f9a;
+  --accent-ink: #ffffff;
+  --accent-soft: #d4c8ea;
+  --desk: #998fb0;
+  --desk-dots: #8f85a6;
+  --paper: #fdfbff;
+  --ink: #221e2b;
+  --paper-edge: #2f2a3b;
+  --selection: #ddd2f0;
+  --icon-paper: #fdfbff;
+  color-scheme: light;
+}
+:root[data-palette="lilac"][data-theme="dark"] {
+  --chrome: #2f2b38;
+  --chrome-2: #292531;
+  --hi: #474155;
+  --lo: #17141d;
+  --edge: #0d0b11;
+  --text: #e6e2ee;
+  --muted: #a39cb2;
+  --accent: #b9a2e3;
+  --accent-ink: #181225;
+  --accent-soft: #3e3358;
+  --desk: #1d1926;
+  --desk-dots: #24202e;
+  --paper: #26222e;
+  --ink: #e7e3ef;
+  --paper-edge: #060509;
+  --selection: #4b3d6c;
+  --icon-paper: #e2dee9;
+  --icon-silver: #847e90;
+  color-scheme: dark;
+}
+
 /* ---- base -------------------------------------------------------------------- */
 
 * {
@@ -1092,6 +1317,10 @@ kbd {
 }
 
 /* View > Options */
+.options input[type="radio"],
+.options input[type="checkbox"] {
+  accent-color: var(--accent);
+}
 .options {
   display: grid;
   gap: 10px;
@@ -1108,14 +1337,168 @@ kbd {
 .opt-group legend {
   padding: 0 4px;
 }
-.opt-presets {
+.opt-row {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 18px;
 }
-.opt-spelling {
+.opt-stack {
   display: grid;
   gap: 6px;
+}
+.opt-themes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+}
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Each theme's desk, chrome, paper and accent, in its light version. */
+.theme-swatch {
+  display: inline-flex;
+  border: 1px solid var(--lo);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.theme-swatch i {
+  width: 10px;
+  height: 14px;
+}
+.tsw-sage i:nth-child(1) {
+  background: #7d9891;
+}
+.tsw-sage i:nth-child(2) {
+  background: #d6dbd2;
+}
+.tsw-sage i:nth-child(3) {
+  background: #fffdf8;
+}
+.tsw-sage i:nth-child(4) {
+  background: #2f5d50;
+}
+.tsw-gray i:nth-child(1) {
+  background: #8f8f8f;
+}
+.tsw-gray i:nth-child(2) {
+  background: #d9d9d9;
+}
+.tsw-gray i:nth-child(3) {
+  background: #fdfdfd;
+}
+.tsw-gray i:nth-child(4) {
+  background: #555555;
+}
+.tsw-sand i:nth-child(1) {
+  background: #b4a479;
+}
+.tsw-sand i:nth-child(2) {
+  background: #e5dcbf;
+}
+.tsw-sand i:nth-child(3) {
+  background: #fffdef;
+}
+.tsw-sand i:nth-child(4) {
+  background: #9a5a3c;
+}
+.tsw-slate i:nth-child(1) {
+  background: #7f8fa3;
+}
+.tsw-slate i:nth-child(2) {
+  background: #d3d9e0;
+}
+.tsw-slate i:nth-child(3) {
+  background: #fdfdff;
+}
+.tsw-slate i:nth-child(4) {
+  background: #3b5a85;
+}
+.tsw-rose i:nth-child(1) {
+  background: #b0939a;
+}
+.tsw-rose i:nth-child(2) {
+  background: #e6d6d9;
+}
+.tsw-rose i:nth-child(3) {
+  background: #fffafb;
+}
+.tsw-rose i:nth-child(4) {
+  background: #8a3a4f;
+}
+.tsw-lilac i:nth-child(1) {
+  background: #998fb0;
+}
+.tsw-lilac i:nth-child(2) {
+  background: #dcd6e6;
+}
+.tsw-lilac i:nth-child(3) {
+  background: #fdfbff;
+}
+.tsw-lilac i:nth-child(4) {
+  background: #6a4f9a;
+}
+.opt-font-sample {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--well);
+  font-size: 12pt;
+}
+
+/* Tabs, as in a 90s properties dialog: the selected tab joins the panel. */
+.tabbed {
+  width: min(460px, 100%);
+}
+.tab-strip {
+  display: flex;
+  gap: 2px;
+  padding-left: 4px;
+}
+.tab {
+  position: relative;
+  top: 1px;
+  padding: 4px 12px 3px;
+  border: 1px solid var(--lo);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--chrome-2);
+  color: var(--text);
+  font: inherit;
+  box-shadow: inset 1px 1px 0 var(--hi);
+}
+.tab[aria-selected="true"] {
+  z-index: 1;
+  padding-bottom: 5px;
+  margin-top: -2px;
+  background: var(--chrome);
+}
+.tab:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -4px;
+}
+.tab-body {
+  padding: 10px;
+  border: 1px solid var(--lo);
+  border-radius: 0 3px 3px 3px;
+  background: var(--chrome);
+  box-shadow: inset 1px 1px 0 var(--hi);
+}
+/* The panels share one grid cell, so the dialog keeps the size of the
+ * largest tab instead of jumping when you switch. */
+.tab-body {
+  display: grid;
+}
+.tab-panel {
+  grid-area: 1 / 1;
+  align-content: start;
+}
+.tab-panel[hidden] {
+  display: grid;
+  visibility: hidden;
 }
 .opt-note {
   margin: 0;

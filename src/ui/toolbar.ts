@@ -8,7 +8,7 @@ import type { Command, EditorState } from "prosemirror-state";
 import type { AppActions } from "../app.ts";
 import { BLOCK_STYLES } from "../editor/actions.ts";
 import * as cmd from "../editor/commands.ts";
-import { COLORS, type ColorDef, DEFAULT_FONT, DEFAULT_SIZE, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
+import { COLORS, type ColorDef, DEFAULT_SIZE, docFont, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
 import { schema } from "../editor/schema.ts";
 import { type Action, shortcutText } from "./action.ts";
 import { dismissable, h, placeBelow } from "./dom.ts";
@@ -113,11 +113,18 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
   const fontSelect = select(
     "Font",
     "w-font",
-    [["", `Default (${DEFAULT_FONT.label})`], ...FONTS.map((f): [string, string] => [f.key, f.label])],
+    [["", "Default"], ...FONTS.map((f): [string, string] => [f.key, f.label])],
     (v) => run(cmd.setKeyedMark(M.font, v || null)),
     (s) => cmd.markKey(s, M.font) ?? "",
   );
   for (const opt of Array.from(fontSelect.options)) if (opt.value) opt.classList.add(`ff-${opt.value}`);
+  // "Default" is the document's own font, chosen in View, Options.
+  const defaultOption = fontSelect.options[0]!;
+  updaters.push((s) => {
+    const f = docFont(s.doc.attrs.font);
+    defaultOption.text = `Default (${f.label})`;
+    defaultOption.className = `ff-${f.key}`;
+  });
 
   const sizeSelect = select(
     "Font size",

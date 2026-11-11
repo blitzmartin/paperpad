@@ -7,7 +7,8 @@ import type { Command, EditorState } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction, type EditorActionId } from "./editor/actions.ts";
 import * as cmd from "./editor/commands.ts";
 import { pageViewOn, relayoutPages, setPageView } from "./editor/pages.ts";
-import { createView, newState } from "./editor/setup.ts";
+import { blankDoc, createView, newState } from "./editor/setup.ts";
+import { schema } from "./editor/schema.ts";
 import { toDocxParts } from "./export/docx.ts";
 import { toRtf } from "./export/rtf.ts";
 import { toPlainText } from "./export/text.ts";
@@ -19,10 +20,10 @@ import { createFindPanel } from "./ui/find-panel.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
-import { initSpelling, initWritingFeel, openOptions } from "./ui/options.ts";
+import { initSpelling, initWritingFeel, openOptions, type OptionsResult, preferredFont } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
-import { currentTheme, loadPref, loadZoom, onThemeChange, saveZoom, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
+import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
 
 /** Every action the menus, the toolbar and the keyboard can trigger. */
@@ -82,9 +83,10 @@ const TEXT_EXPORTERS: Record<TextExport, (doc: PMNode) => string | Promise<strin
 export function startApp() {
   const page = document.getElementById("page")!;
   const status = createStatusBar(document.getElementById("statusbar")!);
-  const emptyDoc = newState().doc;
+  /** A new, empty document in the default font chosen in View, Options. */
+  const emptyDoc = () => newState(blankDoc(preferredFont())).doc;
 
-  let info: DocInfo = { token: null, name: "Untitled", format: "html", saved: emptyDoc };
+  let info: DocInfo = { token: null, name: "Untitled", format: "html", saved: emptyDoc() };
   let lastDirty: boolean | null = null;
   let lastTitle = "";
   let updateToolbar: (s: EditorState) => void = () => {};
@@ -93,6 +95,7 @@ export function startApp() {
   // Page view unless the user chose the infinite one.
   setPageView(loadPref(LAYOUT_KEY) !== "infinite");
   const view = createView(page, (state) => refresh(state));
+  view.updateState(newState(info.saved));
   initSpelling(view.dom);
   const isDirty = () => !view.state.doc.eq(info.saved);
   const stem = () => info.name.replace(/\.[^.]+$/, "") || "Untitled";
@@ -120,7 +123,7 @@ export function startApp() {
     // them. Not marked as a change: opening a file alone does not rewrite it.
     if (!pageViewOn() && doc.attrs.pageNumbers) doc = doc.type.create({ ...doc.attrs, pageNumbers: false }, doc.content, doc.marks);
     view.updateState(newState(doc));
-    setInfo({ ...file, saved: markSaved ? view.state.doc : emptyDoc });
+    setInfo({ ...file, saved: markSaved ? view.state.doc : emptyDoc() });
     view.focus();
   }
 
@@ -188,7 +191,7 @@ export function startApp() {
       return fail("Could not open", e);
     }
     try {
-      doc = await parseDocument(d.content, d.format);
+      doc = await parseDocument(d.content, d.format, preferredFont());
     } catch (e) {
       return fail(`Could not read ${d.name}`, e);
     }
@@ -200,7 +203,7 @@ export function startApp() {
   }
 
   async function newDocument() {
-    if (await confirmDiscard()) loadDoc(emptyDoc, { token: null, name: "Untitled", format: "html" });
+    if (await confirmDiscard()) loadDoc(emptyDoc(), { token: null, name: "Untitled", format: "html" });
   }
 
   function print() {
@@ -252,7 +255,7 @@ export function startApp() {
     });
     if (choice === "restore") {
       // Restored as an unsaved document so the user is asked to save it.
-      loadDoc(await parseDocument(content, "html"), { token: null, name: "Recovered", format: "html" }, false);
+      loadDoc(await parseDocument(content, "html", preferredFont()), { token: null, name: "Recovered", format: "html" }, false);
     } else {
       void backend.recoveryClear();
     }
@@ -316,6 +319,20 @@ export function startApp() {
     }
     // The toolbar shows the page numbers button in page view only.
     refresh(view.state);
+    view.focus();
+  }
+
+  /** A new default font also applies to the open document while it is still empty. */
+  function applyOptions(result: OptionsResult) {
+    const font = result.fontChanged;
+    const doc = view.state.doc;
+    const empty = doc.childCount === 1 && doc.firstChild!.type === schema.nodes.paragraph && doc.firstChild!.content.size === 0;
+    if (font && empty && doc.attrs.font !== font) {
+      const wasSaved = !isDirty();
+      view.dispatch(view.state.tr.setDocAttribute("font", font).setMeta("addToHistory", false));
+      if (wasSaved) info = { ...info, saved: view.state.doc };
+      refresh(view.state);
+    }
     view.focus();
   }
 
@@ -404,7 +421,7 @@ export function startApp() {
     zoomReset: { label: "Actual size", keys: ["Mod-0"], run: () => changeZoom(0) },
     pageView: { label: "Page view", run: () => setLayout(true), checked: pageViewOn },
     infiniteView: { label: "Infinite view", run: () => setLayout(false), checked: () => !pageViewOn() },
-    options: { label: "Options...", run: () => void openOptions().then(() => view.focus()) },
+    options: { label: "Options...", run: () => void openOptions().then(applyOptions) },
     shortcuts: { label: "Keyboard shortcuts", keys: ["F1"], run: shortcuts },
     about: { label: "About PaperPad", run: about },
   };
@@ -430,6 +447,16 @@ export function startApp() {
       checked: () => cmd.currentBlockStyle(view.state) === b.style,
     }));
 
+  const themeItems = (): MenuEntry[] =>
+    PALETTES.map((p) => ({
+      label: p.label,
+      run: () => {
+        setPalette(p.id);
+        view.focus();
+      },
+      checked: () => currentPalette() === p.id,
+    }));
+
   const menus: TopMenu[] = [
     {
       label: "File",
@@ -444,7 +471,16 @@ export function startApp() {
     {
       label: "View",
       key: "v",
-      items: [A.darkMode, SEP, A.pageView, A.infiniteView, SEP, A.zoomIn, A.zoomOut, A.zoomReset, SEP, A.options],
+      items: [
+        A.pageView,
+        A.infiniteView,
+        SEP,
+        { kind: "sub", label: "Zoom", items: () => [A.zoomIn, A.zoomOut, A.zoomReset] },
+        { kind: "sub", label: "Theme", items: themeItems },
+        A.darkMode,
+        SEP,
+        A.options,
+      ],
     },
     {
       label: "Format",

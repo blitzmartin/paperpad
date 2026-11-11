@@ -393,7 +393,7 @@ button, select, input { font: inherit; color: inherit; }
   transition: transform var(--caret-move) ease-out;
 }
 .pm-caret.jump { transition: none; }
-.pm-caret.shape-thick { width: 3px; }
+.pm-caret.shape-thick { width: 4px; margin-left: -2px; }
 .pm-caret.shape-underscore { width: calc(var(--h) * 0.5); height: 2px; margin: calc(var(--h) - 2px) 0 0; }
 .pm-caret.idle.blink-blink { animation: caret-blink 1.06s step-end infinite; }
 .pm-caret.idle.blink-fade { animation: caret-fade 1.2s ease-in-out infinite; }

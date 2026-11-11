@@ -8,7 +8,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print, and the status bar shows which page you are on. Infinite view is one long sheet.
 - **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off, and a document opened in it loses them the next time it is saved.
 - **Word count** in the status bar, with the count for the selection when text is selected.
-- **Writing feel** in View, Options: Classic, Smooth or Calm caret presets, plus advanced settings for caret movement, blink, shape and smooth scrolling.
+- **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Spell checking** you can turn on and off in View, Options. It checks the Windows display language only, so words in other languages are underlined too.
 - **Light and dark mode**, following your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
@@ -17,6 +17,17 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
 - **Crash recovery:** unsaved work is kept in the app data folder every 15 seconds.
 - **Small:** about 85 KB of gzipped JavaScript at startup, installers of a few MB.
+
+## Writing feel presets
+
+| | Classic | Smooth | Calm |
+| --- | --- | --- | --- |
+| Caret movement | Instant | Glides (60 ms) | Glides slowly (180 ms) |
+| When you pause | Blinks | Fades in and out | Stays solid |
+| Caret | Thin line | Thin line | Thick line |
+| Smooth scrolling | Off | On | On |
+
+The caret never blinks while you type, only after half a second of pause. Smooth is the default. If Windows or your system is set to reduce animations, Classic is the default instead. Any preset can be adjusted under Advanced.
 
 ## Download
 

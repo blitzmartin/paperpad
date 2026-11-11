@@ -13,6 +13,8 @@ export interface Action {
   enabled?(): boolean;
   /** Checked in menus, pressed in the toolbar. */
   checked?(): boolean;
+  /** The toolbar hides the button unless this returns true. */
+  visible?(): boolean;
 }
 
 export function shortcutText(a: Action): string {

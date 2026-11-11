@@ -2,16 +2,18 @@
 
 import type { EditorState } from "prosemirror-state";
 import { stats } from "../editor/commands.ts";
+import { pageInfo } from "../editor/pages.ts";
 import { h } from "./dom.ts";
 
 export function createStatusBar(root: HTMLElement) {
   const message = h("span", { class: "sb-cell sb-message", text: "Ready" });
+  const page = h("span", { class: "sb-cell sb-page" });
   const position = h("span", { class: "sb-cell sb-pos" });
-  const words = h("span", { class: "sb-cell" });
-  const chars = h("span", { class: "sb-cell" });
-  const format = h("span", { class: "sb-cell" });
+  const words = h("span", { class: "sb-cell sb-words" });
+  const chars = h("span", { class: "sb-cell sb-chars" });
+  const format = h("span", { class: "sb-cell sb-format" });
   const zoom = h("span", { class: "sb-cell sb-zoom" });
-  root.append(message, position, words, chars, format, zoom);
+  root.append(message, page, position, words, chars, format, zoom);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: EditorState | null = null;
@@ -32,7 +34,10 @@ export function createStatusBar(root: HTMLElement) {
       pending = state;
       requestAnimationFrame(() => {
         const s = stats(pending!);
+        const p = pageInfo(pending!);
         pending = null;
+        page.hidden = !p;
+        if (p) page.textContent = `Page ${nf.format(p.page)} of ${nf.format(p.pages)}`;
         position.textContent = `Par ${s.paragraph}, Col ${s.column}`;
         const total = `${nf.format(s.words)} ${s.words === 1 ? "word" : "words"}`;
         words.textContent = s.selectedWords === null ? total : `${nf.format(s.selectedWords)} of ${total} selected`;

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../src/editor/actions.ts";
 import { deleteRuleBefore, exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
+import { blockBreakPos, fitGapHeights, GAP, gapTarget, MARGIN, PAGE_H } from "../src/editor/pages.ts";
 import { keyLabel, MOD_LABEL } from "../src/ui/keys.ts";
 import { languageName, parseSpellcheck, storedSpellcheck } from "../src/ui/spelling.ts";
 import { parsePrefs, PRESETS, type PresetId, presetOf } from "../src/ui/writing-feel.ts";
@@ -146,6 +147,25 @@ test("the checked language is shown by name", () => {
   assert.equal(languageName("en-US"), "English (United States)");
   assert.equal(languageName("it"), "Italian");
   assert.equal(languageName("not a tag"), "not a tag");
+});
+
+test("a page break before the first item of a list goes before the list", () => {
+  const list = N.bullet_list.create(null, [N.list_item.create(null, p("one")), N.list_item.create(null, p("two"))]);
+  const doc = N.doc.create(null, [p("a"), list]);
+  const listPos = doc.child(0).nodeSize;
+  assert.equal(blockBreakPos(doc, listPos + 2), listPos, "first item");
+  const second = listPos + 1 + list.child(0).nodeSize;
+  assert.equal(blockBreakPos(doc, second + 1), second, "second item breaks before itself");
+  assert.equal(blockBreakPos(doc, listPos), listPos, "top level block");
+});
+
+test("page spacers are sized so every page starts at its top margin", () => {
+  assert.equal(gapTarget(0), PAGE_H + GAP + MARGIN);
+  // Spacer 0 ends 10px short; spacer 1 already moves with it, so it only needs its own 5px.
+  const targets = [gapTarget(0), gapTarget(1)];
+  const next = fitGapHeights([100, 100], [targets[0]! - 10, targets[1]! - 15], targets);
+  assert.deepEqual(next, [110, 105]);
+  assert.deepEqual(fitGapHeights([0], [targets[0]! + 50], [targets[0]!]), [0], "never negative");
 });
 
 test("every DOCX part is allowed by the Rust export command", () => {

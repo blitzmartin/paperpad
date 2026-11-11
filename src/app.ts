@@ -6,6 +6,7 @@ import type { Node as PMNode } from "prosemirror-model";
 import type { Command, EditorState } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction, type EditorActionId } from "./editor/actions.ts";
 import * as cmd from "./editor/commands.ts";
+import { pageViewOn, relayoutPages, setPageView } from "./editor/pages.ts";
 import { createView, newState } from "./editor/setup.ts";
 import { toDocxParts } from "./export/docx.ts";
 import { toRtf } from "./export/rtf.ts";
@@ -21,7 +22,7 @@ import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
 import { initSpelling, initWritingFeel, openOptions } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
-import { currentTheme, loadZoom, onThemeChange, saveZoom, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
+import { currentTheme, loadPref, loadZoom, onThemeChange, saveZoom, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
 
 /** Every action the menus, the toolbar and the keyboard can trigger. */
@@ -41,6 +42,8 @@ export interface AppActions extends Record<EditorActionId, Action> {
   zoomIn: Action;
   zoomOut: Action;
   zoomReset: Action;
+  pageView: Action;
+  infiniteView: Action;
   options: Action;
   shortcuts: Action;
   about: Action;
@@ -59,6 +62,7 @@ type ExportKind = "pdf" | "docx" | TextExport;
 
 const FORMAT_LABEL: Record<EditableFormat, string> = { html: "PaperPad", md: "Markdown", txt: "Plain text" };
 const RECOVERY_INTERVAL_MS = 15_000;
+const LAYOUT_KEY = "paperpad.layout";
 
 const EXPORTS: [ExportKind, string][] = [
   ["pdf", "PDF (print to PDF)..."],
@@ -86,6 +90,8 @@ export function startApp() {
   let updateToolbar: (s: EditorState) => void = () => {};
 
   initWritingFeel();
+  // Page view unless the user chose the infinite one.
+  setPageView(loadPref(LAYOUT_KEY) !== "infinite");
   const view = createView(page, (state) => refresh(state));
   initSpelling(view.dom);
   const isDirty = () => !view.state.doc.eq(info.saved);
@@ -110,6 +116,9 @@ export function startApp() {
   }
 
   function loadDoc(doc: PMNode, file: FileInfo, markSaved = true) {
+    // In infinite view a document has no page numbers, so the next save drops
+    // them. Not marked as a change: opening a file alone does not rewrite it.
+    if (!pageViewOn() && doc.attrs.pageNumbers) doc = doc.type.create({ ...doc.attrs, pageNumbers: false }, doc.content, doc.marks);
     view.updateState(newState(doc));
     setInfo({ ...file, saved: markSaved ? view.state.doc : emptyDoc });
     view.focus();
@@ -284,6 +293,8 @@ export function startApp() {
     // CSSOM writes are allowed by the CSP (only style attributes in markup are not).
     page.style.setProperty("zoom", String(zoom));
     status.setZoom(zoom);
+    // Text can wrap a little differently at another zoom.
+    relayoutPages();
   };
   const changeZoom = (dir: -1 | 0 | 1) => {
     const i = ZOOM_STEPS.indexOf(zoom);
@@ -292,6 +303,24 @@ export function startApp() {
     applyZoom();
   };
   applyZoom();
+
+  // ---- page layout -----------------------------------------------------------------------
+
+  function setLayout(pages: boolean) {
+    setPageView(pages);
+    storePref(LAYOUT_KEY, pages ? "pages" : "infinite");
+    // Infinite view has no page numbers button, so numbers left on would
+    // print with no way to turn them off. Kept out of undo for the same reason.
+    if (!pages && cmd.pageNumbersOn(view.state)) {
+      view.dispatch(view.state.tr.setDocAttribute("pageNumbers", false).setMeta("addToHistory", false));
+    }
+    // The toolbar shows the page numbers button in page view only.
+    refresh(view.state);
+    view.focus();
+  }
+
+  // Pages are measured with the document fonts, so measure again once they load.
+  void document.fonts?.ready.then(relayoutPages);
 
   // ---- dialogs ------------------------------------------------------------------------------
 
@@ -356,6 +385,7 @@ export function startApp() {
 
   const A: AppActions = {
     ...(Object.fromEntries(Object.entries(EDITOR_ACTIONS).map(([id, a]) => [id, fromEditor(a)])) as Record<EditorActionId, Action>),
+    pageNumbers: { ...fromEditor(EDITOR_ACTIONS.pageNumbers), visible: pageViewOn },
     newDocument: { label: "New", keys: ["Mod-n"], run: () => void newDocument() },
     open: { label: "Open...", keys: ["Mod-o"], run: () => void openFrom(backend.open) },
     save: { label: "Save", keys: ["Mod-s"], run: () => void save() },
@@ -372,6 +402,8 @@ export function startApp() {
     zoomIn: { label: "Zoom in", keys: ["Mod-+", "Mod-="], run: () => changeZoom(1) },
     zoomOut: { label: "Zoom out", keys: ["Mod--"], run: () => changeZoom(-1) },
     zoomReset: { label: "Actual size", keys: ["Mod-0"], run: () => changeZoom(0) },
+    pageView: { label: "Page view", run: () => setLayout(true), checked: pageViewOn },
+    infiniteView: { label: "Infinite view", run: () => setLayout(false), checked: () => !pageViewOn() },
     options: { label: "Options...", run: () => void openOptions().then(() => view.focus()) },
     shortcuts: { label: "Keyboard shortcuts", keys: ["F1"], run: shortcuts },
     about: { label: "About PaperPad", run: about },
@@ -412,7 +444,7 @@ export function startApp() {
     {
       label: "View",
       key: "v",
-      items: [A.darkMode, SEP, A.zoomIn, A.zoomOut, A.zoomReset, SEP, A.pageNumbers, SEP, A.options],
+      items: [A.darkMode, SEP, A.pageView, A.infiniteView, SEP, A.zoomIn, A.zoomOut, A.zoomReset, SEP, A.options],
     },
     {
       label: "Format",

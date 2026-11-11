@@ -39,12 +39,13 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
   /** A button for an action. Menu labels drop their "..." in tooltips. */
   const tool = (a: Action, name: IconName) => {
     const btn = button(name, a.label.replace(/\.\.\.$/, ""), shortcutText(a), () => a.run());
-    const { checked, enabled } = a;
+    const { checked, enabled, visible } = a;
     if (checked) {
       btn.setAttribute("aria-pressed", "false");
       updaters.push(() => btn.setAttribute("aria-pressed", String(checked())));
     }
     if (enabled) updaters.push(() => (btn.disabled = !enabled()));
+    if (visible) updaters.push(() => (btn.hidden = !visible()));
     return btn;
   };
 
@@ -80,7 +81,7 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
     sep(),
     group(tool(A.undo, "undo"), tool(A.redo, "redo")),
     sep(),
-    group(tool(A.find, "find"), tool(A.pageNumbers, "pages")),
+    group(tool(A.find, "find"), tool(A.pageNumbers, "pageNumbers")),
     h("span", { class: "tb-spacer" }),
     group(themeBtn),
   );

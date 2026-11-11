@@ -5,7 +5,8 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 
 - **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, horizontal line, code block, clear formatting.
 - **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
-- **Page numbers** at the bottom of each printed page, in PDF, Word and RTF exports. The setting is saved with the document.
+- **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print, and the status bar shows which page you are on. Infinite view is one long sheet.
+- **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off, and a document opened in it loses them the next time it is saved.
 - **Word count** in the status bar, with the count for the selection when text is selected.
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets, plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Spell checking** you can turn on and off in View, Options. It checks the Windows display language only, so words in other languages are underlined too.

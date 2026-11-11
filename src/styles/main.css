@@ -185,6 +185,7 @@ button, select, input { font: inherit; color: inherit; }
   color: var(--text);
   cursor: default;
 }
+.tb[hidden] { display: none; }
 .tb:hover:not(:disabled) { box-shadow: var(--raised); }
 .tb:active:not(:disabled),
 .tb[aria-pressed="true"] {
@@ -239,6 +240,7 @@ button, select, input { font: inherit; color: inherit; }
 .ico .ka { stroke: var(--icon-blue); }
 .ico .kg { stroke: var(--icon-green); }
 .ico .kt { stroke: currentColor; stroke-width: 3; }
+.ico .kn { stroke: var(--icon-blue); stroke-width: 1.5; stroke-linecap: round; }
 .ico .t { fill: currentColor; text-anchor: middle; font-family: Georgia, "Times New Roman", serif; font-size: 15px; }
 .ico .tbo { font-weight: 800; }
 .ico .ti { font-style: italic; font-weight: 700; }
@@ -314,6 +316,66 @@ button, select, input { font: inherit; color: inherit; }
   opacity: 0.6;
 }
 .doc hr.ProseMirror-selectednode { outline: 2px solid var(--accent); }
+
+/* Page view (editor/pages.ts): A4 sheets drawn behind the editor, which
+ * shares their grid cell. Sizes must match the constants in pages.ts.
+ * Screen only: print lays out its own pages with @page. */
+.pp-sheets { display: none; }
+.pp-gap { display: block; height: 0; pointer-events: none; user-select: none; -webkit-user-select: none; }
+@media screen {
+  .page.paged {
+    display: grid;
+    width: 21cm;
+    max-width: none;
+    min-height: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+  .page.paged > * { grid-area: 1 / 1; }
+  .page.paged .doc { z-index: 1; min-height: 29.7cm; padding: 2cm; }
+  .page.paged .pp-sheets { display: flex; flex-direction: column; gap: 24px; pointer-events: none; }
+  .pp-sheet {
+    position: relative;
+    flex: none;
+    height: 29.7cm;
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    box-shadow: 6px 6px 0 var(--paper-edge);
+  }
+  .pp-num { display: none; }
+  .pp-sheets.numbered .pp-num {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: 1cm;
+    left: 0;
+    text-align: center;
+    font: 9pt Arial, sans-serif;
+    color: var(--muted);
+  }
+  /* A page starts at its top margin, so the block after a break loses its own. */
+  .doc:not(.pp-measuring) div.pp-gap + * { margin-top: 0; }
+  .doc.pp-measuring .pp-gap { display: none; }
+  /* A break inside a code block or quote would show its background or border
+   * across the desk, so the spacer paints the paper, the desk and the next
+   * paper itself and reaches over the block's padding and border. */
+  .doc pre .pp-gap-line,
+  .doc blockquote .pp-gap {
+    /* From the bottom: next sheet's top margin, its top edge, the desk, the
+     * drop shadow and bottom edge of the sheet above (7px), then paper. */
+    background: linear-gradient(
+      to top,
+      var(--paper) calc(2cm - 1px),
+      var(--paper-edge) calc(2cm - 1px) 2cm,
+      var(--desk) 2cm calc(2cm + 18px),
+      var(--paper-edge) calc(2cm + 18px) calc(2cm + 25px),
+      var(--paper) calc(2cm + 25px)
+    );
+  }
+  .doc pre .pp-gap-line { margin: 0 -0.8em; }
+  .doc blockquote .pp-gap { margin-left: calc(-1em - 3px); }
+}
 
 /* Drawn caret (editor/caret.ts). The native caret is hidden while it is used. */
 .doc.drawn-caret { caret-color: transparent; }
@@ -583,7 +645,7 @@ kbd {
 @media (max-width: 720px) {
   .workspace { padding: 12px 8px 32px; }
   .doc { padding: 1.2cm 1cm; }
-  .sb-cell:nth-child(4), .sb-cell:nth-child(5) { display: none; }
+  .sb-chars, .sb-format { display: none; }
 }
 
 /* ---- printing and Save as PDF: only the document, on plain white paper ---- */
@@ -595,7 +657,7 @@ kbd {
 
 @media print {
   html, body, .app { height: auto; overflow: visible; background: #fff; }
-  .chrome, .statusbar, .find-panel, .overlay, .menu, .swatches, .pm-caret { display: none !important; }
+  .chrome, .statusbar, .find-panel, .overlay, .menu, .swatches, .pm-caret, .pp-sheets, .pp-gap { display: none !important; }
 
   .workspace {
     padding: 0;

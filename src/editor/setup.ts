@@ -10,6 +10,7 @@ import { EditorView } from "prosemirror-view";
 import { actionKeymap } from "./actions.ts";
 import { caretPlugin } from "./caret.ts";
 import * as cmd from "./commands.ts";
+import { arrowOverBreak, pagesPlugin } from "./pages.ts";
 import { schema } from "./schema.ts";
 
 /**
@@ -43,6 +44,7 @@ function plugins(): Plugin[] {
     history({ depth: 500 }),
     keepTrailingParagraph,
     caretPlugin,
+    pagesPlugin,
     keymap({
       ...actionKeymap(),
       "Shift-Enter": chainCommands(exitCode, cmd.insertLineBreak),
@@ -50,8 +52,8 @@ function plugins(): Plugin[] {
       // Like a classic word processor: Tab nests list items, otherwise types a tab.
       Tab: chainCommands(sinkListItem(listItem), cmd.insertTab),
       "Shift-Tab": liftListItem(listItem),
-      ArrowDown: cmd.exitCodeBlock("down"),
-      ArrowUp: cmd.exitCodeBlock("up"),
+      ArrowDown: chainCommands(cmd.exitCodeBlock("down"), arrowOverBreak("down")),
+      ArrowUp: chainCommands(cmd.exitCodeBlock("up"), arrowOverBreak("up")),
       Backspace: cmd.deleteRuleBefore,
     }),
     keymap(baseKeymap),

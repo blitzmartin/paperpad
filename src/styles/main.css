@@ -700,13 +700,20 @@ input {
   font-style: var(--s-quote-style);
   line-height: var(--s-quote-lh);
   color: var(--s-quote-color, var(--soft));
-  margin: var(--s-quote-before, 0) 0 0;
+  /* The space after the quote sits outside the border, so the rule ends with
+   * the text and does not run into the block below. */
+  margin: var(--s-quote-before, 0) 0 var(--s-quote-after, 6pt);
   padding: 0.1em 0 0.1em 1em;
   border-left: 3px solid var(--accent);
 }
 .doc blockquote p {
   margin: 0 0 var(--s-quote-after, 6pt);
   text-decoration: var(--s-quote-deco, none);
+}
+/* The padding stops this margin from collapsing into the quote's, so it
+ * would stretch the border. The quote's bottom margin replaces it. */
+.doc blockquote > :last-child {
+  margin-bottom: 0;
 }
 .doc pre {
   font-family: var(--s-code-font, "JetBrains Mono", "Courier New", monospace);

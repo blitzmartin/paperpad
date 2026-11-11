@@ -395,7 +395,9 @@ input {
 
 .doc {
   min-height: 29.7cm;
-  padding: 2.2cm 2.4cm;
+  /* The print margins, less the page border, so the text sits exactly where
+   * it does in page view (2cm, the MARGIN in pages.ts) and wraps the same. */
+  padding: calc(2cm - 1px);
   outline: none;
   font-family:
     Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;

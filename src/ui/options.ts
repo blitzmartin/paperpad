@@ -1,7 +1,8 @@
-// View > Options, in three tabs: Writing feel (caret presets, a preview line
-// and the advanced caret settings), Text (default font and spelling) and
-// Appearance (color theme and light or dark mode). Changes apply live;
-// Cancel puts the old settings back.
+// View > Options, in four tabs: Writing feel (caret presets, a preview line
+// and the advanced caret settings), Text (default font and spelling), Saving
+// (autosave and a note on crash recovery) and Appearance (color theme and
+// light or dark mode). Changes apply live, except autosave which applies on
+// OK; Cancel puts the old settings back.
 
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
 import { docFont, FONTS } from "../editor/palette.ts";
@@ -10,6 +11,7 @@ import { h } from "./dom.ts";
 import { showModal } from "./modal.ts";
 import { currentPalette, loadPref, PALETTES, setPalette, setThemeMode, storePref, themeMode, type ThemeMode } from "./theme.ts";
 import { languageName, parseSpellcheck, storedSpellcheck } from "./spelling.ts";
+import { AUTOSAVE_INTERVALS, type AutosavePrefs, parseAutosave } from "./autosave.ts";
 import { CHOICE_FIELDS, CHOICES, parsePrefs, PRESETS, type PresetId, presetOf } from "./writing-feel.ts";
 
 const PREFS_KEY = "paperpad.caret";
@@ -17,6 +19,7 @@ const SPELL_KEY = "paperpad.spellcheck";
 const FONT_KEY = "paperpad.font";
 const ADVANCED_KEY = "paperpad.options.advanced";
 const TAB_KEY = "paperpad.options.tab";
+const AUTOSAVE_KEY = "paperpad.autosave";
 const PREVIEW_TEXT = "Click here and type to try the caret. The quick brown fox jumps over the lazy dog.";
 
 export function initWritingFeel() {
@@ -84,6 +87,62 @@ function fontSection(initial: string) {
   return { section, value: () => select.value };
 }
 
+// ---- autosave -----------------------------------------------------------------------
+
+let autosave: AutosavePrefs = parseAutosave(loadPref(AUTOSAVE_KEY));
+const autosaveListeners: (() => void)[] = [];
+
+export const autosavePrefs = (): AutosavePrefs => autosave;
+
+/** Stores the autosave settings and tells the app to plan its next save again. */
+export function setAutosavePrefs(p: AutosavePrefs) {
+  autosave = { ...p };
+  storePref(AUTOSAVE_KEY, JSON.stringify(autosave));
+  for (const f of autosaveListeners) f();
+}
+
+export const onAutosaveChange = (f: () => void) => void autosaveListeners.push(f);
+
+function autosaveSection(initial: AutosavePrefs) {
+  const box = h("input", { type: "checkbox", id: "opt-autosave" });
+  box.checked = initial.on;
+  const select = h("select", { class: "field", id: "opt-autosave-time" });
+  for (const [s, text] of AUTOSAVE_INTERVALS) select.append(h("option", { value: String(s), text }));
+  select.value = String(initial.seconds);
+  const sync = () => (select.disabled = !box.checked);
+  box.addEventListener("change", sync);
+  sync();
+  const section = h(
+    "fieldset",
+    { class: "opt-group opt-stack" },
+    h("legend", { text: "Autosave" }),
+    h("label", { class: "opt-choice" }, box, " Save my documents automatically"),
+    h("div", { class: "opt-grid" }, h("label", { for: select.id, text: "Save changes after" }), select),
+    h("p", {
+      class: "opt-note",
+      text:
+        "Autosave starts once a document is saved as a PaperPad file. " +
+        "Text and Markdown files are only saved when you choose Save, because they keep no formatting. " +
+        "PaperPad also saves when you switch to another window.",
+    }),
+  );
+  return { section, value: (): AutosavePrefs => ({ on: box.checked, seconds: Number(select.value) }) };
+}
+
+function recoverySection() {
+  return h(
+    "fieldset",
+    { class: "opt-group opt-stack" },
+    h("legend", { text: "Crash recovery" }),
+    h("p", {
+      class: "opt-note",
+      text:
+        "With or without autosave, PaperPad keeps a copy of unsaved work every 15 seconds in its own data folder. " +
+        "If it closes unexpectedly, it offers to restore that copy the next time it starts.",
+    }),
+  );
+}
+
 // ---- appearance ---------------------------------------------------------------------
 
 const MODES: [ThemeMode, string][] = [
@@ -118,10 +177,11 @@ function appearanceSection() {
 
 // ---- tabs ---------------------------------------------------------------------------
 
-type TabId = "feel" | "text" | "appearance";
+type TabId = "feel" | "text" | "saving" | "appearance";
 const TABS: [TabId, string][] = [
   ["feel", "Writing feel"],
   ["text", "Text"],
+  ["saving", "Saving"],
   ["appearance", "Appearance"],
 ];
 
@@ -182,6 +242,7 @@ export async function openOptions(): Promise<OptionsResult> {
   const font = fontSection(fontSaved);
   const paletteSaved = currentPalette();
   const modeSaved = themeMode();
+  const saving = autosaveSection(autosave);
 
   const radios = new Map<PresetId | "custom", HTMLInputElement>();
   const choice = (id: PresetId | "custom", label: string) => {
@@ -247,6 +308,7 @@ export async function openOptions(): Promise<OptionsResult> {
       advanced,
     ),
     text: h("div", { class: "options" }, font.section, spelling.section),
+    saving: h("div", { class: "options" }, saving.section, recoverySection()),
     appearance: appearanceSection(),
   });
 
@@ -265,6 +327,7 @@ export async function openOptions(): Promise<OptionsResult> {
     storePref(PREFS_KEY, JSON.stringify(draft));
     storePref(SPELL_KEY, storedSpellcheck(spelling.checked()));
     storePref(FONT_KEY, font.value());
+    setAutosavePrefs(saving.value());
     return font.value() !== fontSaved ? { fontChanged: font.value() } : {};
   }
   setCaretPrefs(saved);

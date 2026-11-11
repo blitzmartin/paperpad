@@ -16,7 +16,8 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links and it stays readable as plain text, so your writing is never locked in.
 - **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
-- **Crash recovery:** unsaved work is kept in the app data folder every 15 seconds.
+- **Autosave** you can turn on in File, Autosave or in View, Options, Saving, where you also choose how soon changes are saved: from 10 seconds to 10 minutes. It is off until you turn it on. It saves PaperPad documents once they have a file, and also when you switch to another window. Text and Markdown files are only saved when you choose Save, because they keep no formatting.
+- **Crash recovery:** with or without autosave, PaperPad keeps a copy of unsaved work in its own data folder every 15 seconds, including new documents that were never saved. If the app or the computer stops unexpectedly, PaperPad offers to restore that copy the next time it starts. The copy is removed once you save or choose not to keep your changes.
 - **Small:** about 85 KB of gzipped JavaScript at startup, installers of a few MB.
 
 ## Writing feel presets

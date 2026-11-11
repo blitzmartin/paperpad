@@ -20,7 +20,8 @@ import { createFindPanel } from "./ui/find-panel.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
-import { initSpelling, initWritingFeel, openOptions, type OptionsResult, preferredFont } from "./ui/options.ts";
+import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
+import { autosavePrefs, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
 import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
@@ -32,6 +33,7 @@ export interface AppActions extends Record<EditorActionId, Action> {
   open: Action;
   save: Action;
   saveAs: Action;
+  autosave: Action;
   print: Action;
   cut: Action;
   copy: Action;
@@ -63,6 +65,7 @@ type ExportKind = "pdf" | "docx" | TextExport;
 
 const FORMAT_LABEL: Record<EditableFormat, string> = { html: "PaperPad", md: "Markdown", txt: "Plain text" };
 const RECOVERY_INTERVAL_MS = 15_000;
+const intervalLabel = (s: number) => AUTOSAVE_INTERVALS.find(([v]) => v === s)?.[1] ?? `${s} seconds`;
 const LAYOUT_KEY = "paperpad.layout";
 
 const EXPORTS: [ExportKind, string][] = [
@@ -89,6 +92,9 @@ export function startApp() {
   let info: DocInfo = { token: null, name: "Untitled", format: "html", saved: emptyDoc() };
   let lastDirty: boolean | null = null;
   let lastTitle = "";
+  /** True while a save is being written, so autosave does not write at the same time. */
+  let saving = false;
+  let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
   let updateToolbar: (s: EditorState) => void = () => {};
 
   initWritingFeel();
@@ -110,6 +116,7 @@ export function startApp() {
       lastTitle = info.name;
       void backend.setDocumentState(info.name, dirty);
     }
+    scheduleAutosave();
   }
 
   function setInfo(next: DocInfo) {
@@ -119,6 +126,7 @@ export function startApp() {
   }
 
   function loadDoc(doc: PMNode, file: FileInfo, markSaved = true) {
+    cancelAutosave();
     // In infinite view a document has no page numbers, so the next save drops
     // them. Not marked as a change: opening a file alone does not rewrite it.
     if (!pageViewOn() && doc.attrs.pageNumbers) doc = doc.type.create({ ...doc.attrs, pageNumbers: false }, doc.content, doc.marks);
@@ -134,32 +142,93 @@ export function startApp() {
 
   // ---- files ---------------------------------------------------------------------
 
-  /** Writes the document and records it as saved. False when cancelled or failed. */
-  async function persist(write: (doc: PMNode) => Promise<FileInfo | null>): Promise<boolean> {
+  /**
+   * Writes the document and records it as saved. False when cancelled or failed.
+   * An autosave reports in the status bar only, never with a dialog.
+   */
+  async function persist(write: (doc: PMNode) => Promise<FileInfo | null>, auto = false): Promise<boolean> {
     const doc = view.state.doc;
+    saving = true;
     try {
       const file = await write(doc);
       if (!file) return false;
+      // The file may have been replaced (Save As) while this was written.
+      if (auto && file.token !== info.token) return false;
       setInfo({ ...file, saved: doc });
-      void backend.recoveryClear();
-      status.flash(`Saved ${info.name}`);
+      // Typing during the write keeps the document dirty: recovery still covers it.
+      if (!isDirty()) void backend.recoveryClear();
+      status.flash(auto ? "Autosaved" : `Saved ${info.name}`, auto ? 2000 : 4000);
       return true;
     } catch (e) {
-      fail("Could not save", e);
+      if (auto) status.flash(`Autosave failed: ${e instanceof Error ? e.message : String(e)}`, 10000);
+      else fail("Could not save", e);
       return false;
+    } finally {
+      saving = false;
+      refresh(view.state);
     }
   }
 
   const saveAs = () => persist((doc) => backend.saveAs(serializeHtml(doc, stem()), stem()));
 
-  function save(): Promise<boolean> {
+  function save(auto = false): Promise<boolean> {
     const file: FileInfo = info;
     if (file.token === null) return saveAs();
     const token = file.token;
     return persist(async (doc) => {
       await backend.save(token, await serializeDocument(doc, file.format, stem()));
       return file;
-    });
+    }, auto);
+  }
+
+  // ---- autosave ---------------------------------------------------------------------
+
+  /** Only PaperPad files that already exist: text and Markdown would lose formatting. */
+  function canAutosave() {
+    return autosavePrefs().on && info.token !== null && info.format === "html";
+  }
+
+  function cancelAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = undefined;
+  }
+
+  /** Plans a save a set time after the first unsaved change. Called on every editor update. */
+  function scheduleAutosave() {
+    if (autosaveTimer !== undefined || !canAutosave() || !isDirty()) return;
+    autosaveTimer = setTimeout(autosaveNow, autosavePrefs().seconds * 1000);
+  }
+
+  function autosaveNow() {
+    cancelAutosave();
+    if (!canAutosave() || !isDirty()) return;
+    // Wait while a dialog is open (it may be asking about these very changes)
+    // or another save is being written.
+    if (saving || isModalOpen()) {
+      autosaveTimer = setTimeout(autosaveNow, 2000);
+      return;
+    }
+    void save(true);
+  }
+
+  onAutosaveChange(() => {
+    cancelAutosave();
+    scheduleAutosave();
+  });
+  // Switching to another window saves right away.
+  window.addEventListener("blur", () => {
+    if (autosaveTimer !== undefined) autosaveNow();
+  });
+
+  function toggleAutosave() {
+    const p = autosavePrefs();
+    setAutosavePrefs({ ...p, on: !p.on });
+    if (!p.on) {
+      if (info.token === null) status.flash("Autosave starts after you save this document once", 6000);
+      else if (info.format !== "html") status.flash(`${FORMAT_LABEL[info.format]} files are not autosaved. Use Save As to keep formatting.`, 8000);
+      else status.flash(`Autosave is on: changes are saved after ${intervalLabel(p.seconds)}`);
+    } else status.flash("Autosave is off");
+    view.focus();
   }
 
   /** Asks what to do with unsaved changes. Resolves true when it is OK to continue. */
@@ -198,7 +267,8 @@ export function startApp() {
     loadDoc(doc, { token: d.token, name: d.name, format: d.format });
     void backend.recoveryClear();
     if (d.format !== "html") {
-      status.flash(`${FORMAT_LABEL[d.format]} keeps no fonts or colors. Use Save As to keep formatting.`, 8000);
+      const auto = autosavePrefs().on ? " It is not autosaved." : "";
+      status.flash(`${FORMAT_LABEL[d.format]} keeps no fonts or colors.${auto} Use Save As to keep formatting.`, 8000);
     }
   }
 
@@ -407,6 +477,7 @@ export function startApp() {
     open: { label: "Open...", keys: ["Mod-o"], run: () => void openFrom(backend.open) },
     save: { label: "Save", keys: ["Mod-s"], run: () => void save() },
     saveAs: { label: "Save as...", keys: ["Shift-Mod-s"], run: () => void saveAs() },
+    autosave: { label: "Autosave", run: toggleAutosave, checked: () => autosavePrefs().on },
     print: { label: "Print...", keys: ["Mod-p"], run: print },
     // The webview handles these keys itself; the shortcut is only shown.
     cut: { label: "Cut", hint: "Mod-x", run: () => void clipboard("cut") },
@@ -461,7 +532,7 @@ export function startApp() {
     {
       label: "File",
       key: "f",
-      items: [A.newDocument, A.open, { kind: "sub", label: "Open recent", items: recentItems }, SEP, A.save, A.saveAs, { kind: "sub", label: "Export", items: exportItems }, SEP, A.print],
+      items: [A.newDocument, A.open, { kind: "sub", label: "Open recent", items: recentItems }, SEP, A.save, A.saveAs, A.autosave, { kind: "sub", label: "Export", items: exportItems }, SEP, A.print],
     },
     {
       label: "Edit",

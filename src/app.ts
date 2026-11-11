@@ -65,11 +65,11 @@ const RECOVERY_INTERVAL_MS = 15_000;
 const LAYOUT_KEY = "paperpad.layout";
 
 const EXPORTS: [ExportKind, string][] = [
-  ["pdf", "PDF (print to PDF)..."],
-  ["docx", "Word document (.docx)..."],
-  ["rtf", "Rich Text (.rtf)..."],
-  ["md", "Markdown (.md)..."],
-  ["txt", "Plain text (.txt)..."],
+  ["pdf", "PDF (print to PDF)…"],
+  ["docx", "Word document (.docx)…"],
+  ["rtf", "Rich Text (.rtf)…"],
+  ["md", "Markdown (.md)…"],
+  ["txt", "Plain text (.txt)…"],
 ];
 
 const TEXT_EXPORTERS: Record<TextExport, (doc: PMNode) => string | Promise<string>> = {

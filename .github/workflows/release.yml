@@ -1,17 +1,20 @@
 # Builds PaperPad for Windows, macOS (Apple Silicon and Intel) and Linux.
 #
-# - Push a tag like v0.1.0  -> creates a DRAFT GitHub release with installers.
-#   Review it on GitHub, then press "Publish release".
+# - Publish a release on GitHub (Releases > Draft a new release > Publish)
+#   -> builds every platform and uploads the installers to THAT release.
+#   Saving a release as draft does not trigger anything: GitHub never fires
+#   workflow events for drafts. The run starts when you press Publish.
 # - Run it manually (Actions tab > Release > Run workflow) -> builds only and
 #   attaches the installers to the run as downloadable artifacts.
 #
-# The tag must match "version" in src-tauri/tauri.conf.json.
+# The release tag must be "v" + "version" in src-tauri/tauri.conf.json
+# (e.g. v1.0.0 for 1.0.0). The verify job fails fast if they differ.
 
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 # Least privilege by default; only the build job may write releases.
@@ -23,8 +26,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Runs once (not per platform) so a tag/version mismatch fails in seconds
+  # instead of after four full builds.
+  verify:
+    name: Verify tag matches app version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Compare release tag with tauri.conf.json version
+        if: github.event_name == 'release'
+        # The tag goes through env, never interpolated into the script,
+        # so a crafted tag name cannot inject shell code.
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Release tag '$TAG' does not match app version 'v$VERSION'. Bump the version or retag."
+            exit 1
+          fi
+          echo "Tag $TAG matches app version $VERSION"
+
   build:
     name: Build (${{ matrix.name }})
+    needs: verify
     permissions:
       contents: write
     strategy:
@@ -81,25 +110,20 @@ jobs:
           npm run typecheck
           npm test
 
-      - name: Build and (on tags) publish draft release
+      - name: Build and (on release) upload installers to the release
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Empty values mean "build only, do not upload to a release".
-          tagName: ${{ github.ref_type == 'tag' && 'v__VERSION__' || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && 'PaperPad v__VERSION__' || '' }}
-          releaseBody: |
-            Download the installer for your system below.
-            Windows: the .msi or -setup.exe file. macOS: the .dmg (aarch64 for Apple Silicon, x64 for Intel). Linux: the .AppImage, .deb or .rpm.
-            These builds are not code signed yet, so Windows SmartScreen and macOS Gatekeeper will warn on first launch.
-          releaseDraft: true
-          prerelease: false
+          # Upload into the release that triggered this run. Title, notes and
+          # prerelease flag stay whatever you set in the GitHub UI.
+          # Empty on manual runs, which means "build only, upload nothing".
+          releaseId: ${{ github.event.release.id }}
           args: ${{ matrix.args }}
 
       - name: Upload installers as workflow artifacts (manual runs)
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PaperPad-${{ matrix.name }}
           if-no-files-found: error

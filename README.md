@@ -75,8 +75,9 @@ cd src-tauri && cargo test
 ## Releasing
 
 1. Bump `version` in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`.
-2. Commit, then tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
-3. GitHub Actions builds every platform and creates a draft release. Review it and press Publish.
+2. Commit and push to `main`.
+3. On GitHub, go to Releases, then "Draft a new release". Create a tag that is `v` plus the version (e.g. `v0.1.0`), write the notes and press Publish.
+4. GitHub Actions builds every platform and attaches the installers to that release in about 15 to 20 minutes. If the tag does not match the version, the run fails right away without building.
 
 You can also run the Release workflow by hand from the Actions tab to get installers as downloadable artifacts without making a release.
 

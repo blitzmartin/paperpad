@@ -20,7 +20,7 @@ export interface CaretPrefs {
   smoothScroll: boolean;
 }
 
-const MOVE_MS: Record<CaretMovement, number> = { instant: 0, smooth: 60, smoother: 180 };
+const MOVE_MS: Record<CaretMovement, number> = { instant: 0, smooth: 60, smoother: 140 };
 /** The caret stays solid while you type and starts blinking after this pause. */
 const IDLE_MS = 500;
 /** Room kept between the caret and the window edge when scrolling. */

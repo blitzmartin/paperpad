@@ -22,7 +22,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 
 | | Classic | Smooth | Calm |
 | --- | --- | --- | --- |
-| Caret movement | Instant | Glides (60 ms) | Glides slowly (180 ms) |
+| Caret movement | Instant | Glides (60 ms) | Glides slowly (140 ms) |
 | When you pause | Blinks | Fades in and out | Stays solid |
 | Caret | Thin line | Thin line | Thick line |
 | Smooth scrolling | Off | On | On |

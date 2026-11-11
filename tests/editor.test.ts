@@ -131,15 +131,15 @@ test("shortcut labels read like menu shortcuts", () => {
 test("writing feel presets are told apart and stored settings are checked", () => {
   for (const id of Object.keys(PRESETS) as PresetId[]) assert.equal(presetOf(PRESETS[id].prefs), id);
   assert.equal(presetOf({ ...PRESETS.smooth.prefs, shape: "underscore" }), null, "custom");
-  assert.deepEqual(parsePrefs(null, false), PRESETS.smooth.prefs);
+  assert.deepEqual(parsePrefs(null, false), PRESETS.calm.prefs, "Calm is the default");
   assert.deepEqual(parsePrefs("not json", true), PRESETS.classic.prefs, "reduced motion");
   const stored = parsePrefs(JSON.stringify({ movement: "smoother", blink: "nope", shape: "underscore", smoothScroll: "yes" }), false);
-  assert.deepEqual(stored, { ...PRESETS.smooth.prefs, movement: "smoother", shape: "underscore" });
+  assert.deepEqual(stored, { ...PRESETS.calm.prefs, movement: "smoother", shape: "underscore" });
 });
 
-test("spell checking is on by default and the setting round trips", () => {
-  assert.equal(parseSpellcheck(null), true);
-  assert.equal(parseSpellcheck("garbage"), true);
+test("spell checking is off by default and the setting round trips", () => {
+  assert.equal(parseSpellcheck(null), false);
+  assert.equal(parseSpellcheck("garbage"), false);
   for (const on of [true, false]) assert.equal(parseSpellcheck(storedSpellcheck(on)), on);
 });
 

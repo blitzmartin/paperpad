@@ -5,7 +5,7 @@
 // OK; Cancel puts the old settings back.
 
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
-import { docFont, FONTS } from "../editor/palette.ts";
+import { findFont, FONTS, NEW_DOCUMENT_FONT } from "../editor/palette.ts";
 import { createPreview } from "../editor/setup.ts";
 import { h } from "./dom.ts";
 import { showModal } from "./modal.ts";
@@ -28,7 +28,7 @@ export function initWritingFeel() {
 }
 
 /** The font key new documents start with. */
-export const preferredFont = (): string => docFont(loadPref(FONT_KEY)).key;
+export const preferredFont = (): string => findFont(loadPref(FONT_KEY))?.key ?? NEW_DOCUMENT_FONT;
 
 // ---- spelling -----------------------------------------------------------------------
 

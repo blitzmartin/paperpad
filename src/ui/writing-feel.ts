@@ -11,6 +11,9 @@ export const PRESETS: Record<PresetId, { label: string; prefs: CaretPrefs }> = {
   calm: { label: "Calm", prefs: { movement: "smoother", blink: "steady", shape: "thick", smoothScroll: true } },
 };
 
+/** The writing feel until the user picks one, unless the system asks for reduced motion. */
+export const DEFAULT_PRESET: PresetId = "calm";
+
 export const CHOICES: { [K in ChoiceField]: { label: string; options: [CaretPrefs[K], string][] } } = {
   movement: { label: "Caret movement", options: [["instant", "Instant"], ["smooth", "Smooth"], ["smoother", "Smoother"]] },
   blink: { label: "Caret blink", options: [["blink", "Blink"], ["fade", "Fade"], ["steady", "Steady"]] },
@@ -27,7 +30,7 @@ export function presetOf(p: CaretPrefs): PresetId | null {
 
 /** Reads stored settings, keeping only known values. Reduced motion defaults to Classic. */
 export function parsePrefs(raw: string | null, reducedMotion: boolean): CaretPrefs {
-  const out = { ...PRESETS[reducedMotion ? "classic" : "smooth"].prefs };
+  const out = { ...PRESETS[reducedMotion ? "classic" : DEFAULT_PRESET].prefs };
   let v: Record<string, unknown>;
   try {
     v = JSON.parse(raw ?? "") as Record<string, unknown>;

@@ -29,8 +29,10 @@ export const FONTS: readonly FontDef[] = [
   { key: "comic", label: "Comic Sans MS", name: "Comic Sans MS", rtfFamily: "script", stack: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive' },
 ];
 
-/** Font of documents made before the default font could be chosen. */
+/** Font of documents made before the default font could be chosen. Keep it first: old files depend on it. */
 export const DEFAULT_FONT = FONTS[0]!;
+/** Font new documents start with until a default font is chosen in View, Options. */
+export const NEW_DOCUMENT_FONT = "trebuchet";
 
 export const SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
 /** Size of text with no size mark, before styles existed. Normal's size is in styles.ts. */

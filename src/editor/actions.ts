@@ -58,7 +58,7 @@ export const EDITOR_ACTIONS = {
   numbers: list("Numbered list", "Shift-Mod-7", N.ordered_list),
   indent: { label: "Increase indent", keys: ["Mod-]"], command: cmd.indent },
   outdent: { label: "Decrease indent", keys: ["Mod-["], command: cmd.outdent },
-  rule: { label: "Horizontal line", command: cmd.insertRule },
+  rule: { label: "Horizontal rule", command: cmd.insertRule },
   codeBlock: { label: "Code block", command: cmd.toggleCodeBlock, active: (s) => cmd.currentBlockStyle(s) === "code" },
   clearFormatting: { label: "Clear formatting", keys: ["Mod-\\"], command: cmd.clearFormatting },
   pageNumbers: { label: "Page numbers", command: cmd.togglePageNumbers, active: cmd.pageNumbersOn },

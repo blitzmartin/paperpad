@@ -8,7 +8,7 @@
 import type { Mark, Node as PMNode } from "prosemirror-model";
 import { displaySize, EXPORT_COLUMN, isWrapped, parseDataUrl } from "../editor/image.ts";
 import { COLORS, findFont, HIGHLIGHTS } from "../editor/palette.ts";
-import { exportColor, type ResolvedStyle, resolveStyles } from "../editor/styles.ts";
+import { AUTO_COLOR, exportColor, type ResolvedStyle, resolveRule, resolveStyles, type RuleStyle } from "../editor/styles.ts";
 
 export interface DocxPart {
   name: string;
@@ -109,7 +109,6 @@ interface ParaOpts {
   ilvl?: number;
   indent?: number;
   align?: string;
-  border?: boolean;
 }
 
 const JC: Record<string, string> = { center: "center", right: "right", justify: "both" };
@@ -118,10 +117,29 @@ function paragraph(body: string, o: ParaOpts): string {
   let pPr = "";
   if (o.style) pPr += `<w:pStyle w:val="${o.style}"/>`;
   if (o.numId) pPr += `<w:numPr><w:ilvl w:val="${o.ilvl ?? 0}"/><w:numId w:val="${o.numId}"/></w:numPr>`;
-  if (o.border) pPr += '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>';
   if (o.indent && !o.numId) pPr += `<w:ind w:left="${o.indent * INDENT_TWIPS}"/>`;
   if (o.align && JC[o.align]) pPr += `<w:jc w:val="${JC[o.align]}"/>`;
   return `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ""}${body}</w:p>`;
+}
+
+const RULE_VAL: Record<RuleStyle["line"], string> = { solid: "single", dashed: "dashed", dotted: "dotted", double: "double" };
+/** Twips of the text column (A4 with 2.54 cm margins). */
+const COLUMN_TWIPS = 11906 - 2 * 1440;
+
+/**
+ * The horizontal rule: an empty, tiny paragraph with a bottom border in the
+ * rule's style. Shorter rules are centered with equal left and right indents.
+ */
+function ruleParagraph(rule: RuleStyle): string {
+  const color = rule.color === AUTO_COLOR ? "auto" : exportColor(rule.color)!.slice(1);
+  // Word measures border width in eighths of a point, from 2 to 96.
+  const sz = Math.min(96, Math.max(2, Math.round(rule.thickness * 8)));
+  const side = Math.round((COLUMN_TWIPS * (100 - rule.width)) / 200);
+  return (
+    `<w:p><w:pPr><w:pBdr><w:bottom w:val="${RULE_VAL[rule.line]}" w:sz="${sz}" w:space="1" w:color="${color}"/></w:pBdr>` +
+    `<w:spacing w:before="${rule.before * 20}" w:after="${rule.after * 20}" w:line="240" w:lineRule="auto"/>` +
+    `${side ? `<w:ind w:left="${side}" w:right="${side}"/>` : ""}<w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr></w:pPr></w:p>`
+  );
 }
 
 interface ListNum {
@@ -191,6 +209,7 @@ function documentBody(doc: PMNode): { body: string; lists: ListNum[]; media: Med
   const out: string[] = [];
   const lists: ListNum[] = [];
   const media = new Media();
+  const rule = resolveRule(doc.attrs);
   // An image with text around is anchored to the next paragraph, whose text then flows beside it.
   let anchors = "";
   const takeAnchors = () => {
@@ -226,7 +245,7 @@ function documentBody(doc: PMNode): { body: string; lists: ListNum[]; media: Med
       out.push(paragraph(media.drawing(node), { indent, align: node.attrs.align as string }));
     } else if (name === "horizontal_rule") {
       flush();
-      out.push(paragraph("", { border: true }));
+      out.push(ruleParagraph(rule));
     } else if (name === "blockquote") {
       node.forEach((c) => walk(c, quote + 1, list));
     } else if (name === "bullet_list" || name === "ordered_list") {
@@ -282,7 +301,7 @@ function styleRPr(st: ResolvedStyle): string {
   const half = st.size * 2;
   return (
     `<w:rPr>${rFonts(st.font.name)}${st.bold ? "<w:b/>" : '<w:b w:val="0"/>'}${st.italic ? "<w:i/>" : '<w:i w:val="0"/>'}` +
-    `${hex ? `<w:color w:val="${hex.slice(1)}"/>` : ""}<w:sz w:val="${half}"/><w:szCs w:val="${half}"/></w:rPr>`
+    `${hex ? `<w:color w:val="${hex.slice(1)}"/>` : ""}<w:sz w:val="${half}"/><w:szCs w:val="${half}"/><w:u w:val="${st.underline ? "single" : "none"}"/></w:rPr>`
   );
 }
 

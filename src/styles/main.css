@@ -642,7 +642,9 @@ input {
 
 /* Paragraph styles. The --s-<style>-* variables come from the document's
  * styles (styles.ts, set by stylesPlugin in setup.ts); the fallbacks are
- * the defaults, for editors without the plugin. */
+ * the defaults, for editors without the plugin. Underline (-deco) is set on
+ * each block, not on .doc: a decoration reaches every descendant and could
+ * not be turned off in headings. */
 .doc {
   font-family: var(--s-normal-font, Arial, sans-serif);
   font-size: var(--s-normal-size, 12pt);
@@ -653,6 +655,7 @@ input {
 }
 .doc p {
   margin: var(--s-normal-before, 0) 0 var(--s-normal-after, 6pt);
+  text-decoration: var(--s-normal-deco, none);
 }
 .doc h1 {
   font-family: var(--s-h1-font);
@@ -662,6 +665,7 @@ input {
   line-height: var(--s-h1-lh, 1.2);
   color: var(--s-h1-color);
   margin: var(--s-h1-before, 20pt) 0 var(--s-h1-after, 8pt);
+  text-decoration: var(--s-h1-deco, none);
 }
 .doc h2 {
   font-family: var(--s-h2-font);
@@ -671,6 +675,7 @@ input {
   line-height: var(--s-h2-lh, 1.2);
   color: var(--s-h2-color);
   margin: var(--s-h2-before, 16pt) 0 var(--s-h2-after, 6pt);
+  text-decoration: var(--s-h2-deco, none);
 }
 .doc h3 {
   font-family: var(--s-h3-font);
@@ -680,6 +685,7 @@ input {
   line-height: var(--s-h3-lh, 1.2);
   color: var(--s-h3-color);
   margin: var(--s-h3-before, 12pt) 0 var(--s-h3-after, 4pt);
+  text-decoration: var(--s-h3-deco, none);
 }
 .doc > :first-child {
   margin-top: 0;
@@ -697,6 +703,7 @@ input {
 }
 .doc blockquote p {
   margin: 0 0 var(--s-quote-after, 6pt);
+  text-decoration: var(--s-quote-deco, none);
 }
 .doc pre {
   font-family: var(--s-code-font, "Courier New", monospace);
@@ -706,6 +713,7 @@ input {
   line-height: var(--s-code-lh, 1.4);
   color: var(--s-code-color);
   margin: var(--s-code-before, 0) 0 var(--s-code-after, 6pt);
+  text-decoration: var(--s-code-deco, none);
   padding: 0.6em 0.8em;
   white-space: pre-wrap;
   background: var(--chrome-2);
@@ -723,12 +731,18 @@ input {
 .doc li > p {
   margin-bottom: 0.2em;
 }
+/* The horizontal rule style (--s-rule-*). Its automatic color is the text
+ * color, a little lighter; print makes it black. Shorter rules are centered. */
+.doc {
+  --rule-auto: var(--ink);
+}
 .doc hr {
+  width: var(--s-rule-width, 100%);
   height: 0;
-  margin: 1em 0;
+  margin: var(--s-rule-before, 12pt) auto var(--s-rule-after, 12pt);
   border: 0;
-  border-top: 2px solid var(--ink);
-  opacity: 0.6;
+  border-top: var(--s-rule-thick, 1.5pt) var(--s-rule-line, solid) var(--s-rule-color, var(--rule-auto));
+  opacity: var(--s-rule-opacity, 0.6);
 }
 .doc hr.ProseMirror-selectednode {
   outline: 2px solid var(--accent);
@@ -906,7 +920,8 @@ input {
   z-index: 1;
   width: 2px;
   height: var(--h);
-  margin-left: -1px;
+  /* A small gap after the last character, so the caret does not touch it. */
+  margin-left: 1px;
   border-radius: 1px;
   background: var(--accent);
   pointer-events: none;
@@ -917,7 +932,7 @@ input {
 }
 .pm-caret.shape-thick {
   width: 3px;
-  margin-left: -2px;
+  margin-left: 1px;
 }
 .pm-caret.shape-underscore {
   width: calc(var(--h) * 0.5);
@@ -1721,8 +1736,8 @@ kbd {
   .doc pre {
     background: #f2f2f2;
   }
-  .doc hr {
-    border-top-color: #000;
+  .doc {
+    --rule-auto: #000;
   }
   .doc h1,
   .doc h2,
@@ -1788,6 +1803,23 @@ kbd {
 .sty-heading {
   margin: 0;
   font-size: 1em;
+}
+/* The text fields and the rule fields share one cell, so the dialog keeps its size. */
+.sty-grids {
+  display: grid;
+}
+.sty-grids > .opt-grid {
+  grid-area: 1 / 1;
+  align-content: start;
+}
+.sty-grids > .opt-grid[hidden] {
+  display: grid;
+  visibility: hidden;
+}
+.sty-emphasis {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 .sty-checks {
   display: flex;

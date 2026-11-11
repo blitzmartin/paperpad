@@ -1,5 +1,6 @@
-// Format > Styles: how each paragraph role looks in this document. A change
-// reaches every paragraph with that role, including ones written earlier.
+// Format > Styles: how each paragraph role and the horizontal rule look in
+// this document. A change reaches every paragraph with that role (or every
+// rule), including ones written earlier.
 // Styles are saved with the document; new documents start from the defaults.
 
 import { COLORS, docFont, FONTS, SIZES } from "../editor/palette.ts";
@@ -10,6 +11,11 @@ import {
   type DocStyles,
   LINE_HEIGHTS,
   normalizeStyles,
+  RULE_LINE_LABELS,
+  RULE_LINES,
+  RULE_THICKNESSES,
+  RULE_WIDTHS,
+  type RuleStyle,
   SAME_FONT,
   SOFT_COLOR,
   SPACINGS,
@@ -19,6 +25,7 @@ import {
   type TextStyle,
 } from "../editor/styles.ts";
 import { h } from "./dom.ts";
+import { icon, type IconName } from "./icons.ts";
 import { showModal } from "./modal.ts";
 
 export interface StylesResult {
@@ -27,6 +34,11 @@ export interface StylesResult {
   /** Null while every style is the default and the document stored none. */
   styles: DocStyles | null;
 }
+
+/** The tabs of the dialog: the paragraph styles, then the horizontal rule. */
+type Tab = StyleId | "rule";
+const TABS: readonly Tab[] = [...STYLE_IDS, "rule"];
+const TAB_LABELS: Record<Tab, string> = { ...STYLE_LABELS, rule: "Horizontal rule" };
 
 const lineLabel = (n: number) => (n === 1 ? "1 (single)" : n === 2 ? "2 (double)" : String(n));
 const copy = (s: DocStyles): DocStyles => JSON.parse(JSON.stringify(s));
@@ -37,7 +49,7 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
   const initial = normalizeStyles(attrs.styles) ?? copy(DEFAULT_STYLES);
   let font = initialFont;
   const draft = copy(initial);
-  let current: StyleId = "normal";
+  let current: Tab = "normal";
 
   // ---- fields --------------------------------------------------------------
 
@@ -48,12 +60,22 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
   };
   const fontField = field("font", []);
   const sizeField = field("size", SIZES.map((n) => [n, `${n} pt`]));
-  const colorField = field("color", [[AUTO_COLOR, "Automatic"], [SOFT_COLOR, "Soft gray"], ...COLORS.map((c): [string, string] => [c.key, c.label])]);
+  const colors: [string, string][] = [[AUTO_COLOR, "Automatic"], [SOFT_COLOR, "Soft gray"], ...COLORS.map((c): [string, string] => [c.key, c.label])];
+  const colorField = field("color", colors);
+
   const lineField = field("line", LINE_HEIGHTS.map((n) => [n, lineLabel(n)]));
   const beforeField = field("before", SPACINGS.map((n) => [n, `${n} pt`]));
   const afterField = field("after", SPACINGS.map((n) => [n, `${n} pt`]));
   const bold = h("input", { type: "checkbox", id: "sty-bold" });
   const italic = h("input", { type: "checkbox", id: "sty-italic" });
+  const underline = h("input", { type: "checkbox", id: "sty-underline" });
+
+  const ruleColor = field("rule-color", colors);
+  const ruleThickness = field("rule-thickness", RULE_THICKNESSES.map((n) => [n, `${n} pt`]));
+  const ruleLine = field("rule-line", RULE_LINES.map((l) => [l, RULE_LINE_LABELS[l]]));
+  const ruleWidth = field("rule-width", RULE_WIDTHS.map((n) => [n, n === 100 ? "Full width" : `${n}%`]));
+  const ruleBefore = field("rule-before", SPACINGS.map((n) => [n, `${n} pt`]));
+  const ruleAfter = field("rule-after", SPACINGS.map((n) => [n, `${n} pt`]));
 
   /** Normal picks the document's font; the others can follow it. */
   const fillFonts = () => {
@@ -63,6 +85,24 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
   };
 
   const show = () => {
+    heading.textContent = TAB_LABELS[current];
+    tabs.forEach((t, i) => {
+      const on = TABS[i] === current;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+    });
+    textGrid.hidden = current === "rule";
+    ruleGrid.hidden = current !== "rule";
+    if (current === "rule") {
+      const r = draft.rule;
+      ruleColor.value = r.color;
+      ruleThickness.value = String(r.thickness);
+      ruleLine.value = r.line;
+      ruleWidth.value = String(r.width);
+      ruleBefore.value = String(r.before);
+      ruleAfter.value = String(r.after);
+      return render();
+    }
     const s = draft[current];
     fillFonts();
     fontField.value = current === "normal" ? font : s.font;
@@ -73,17 +113,17 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
     afterField.value = String(s.after);
     bold.checked = s.bold;
     italic.checked = s.italic;
-    heading.textContent = STYLE_LABELS[current];
-    tabs.forEach((t, i) => {
-      const on = STYLE_IDS[i] === current;
-      t.setAttribute("aria-selected", String(on));
-      t.tabIndex = on ? 0 : -1;
-    });
+    underline.checked = s.underline;
     render();
   };
 
   const edit = (change: (s: TextStyle) => void) => {
+    if (current === "rule") return;
     change(draft[current]);
+    render();
+  };
+  const editRule = (change: (r: RuleStyle) => void) => {
+    change(draft.rule);
     render();
   };
   fontField.addEventListener("change", () => {
@@ -99,15 +139,22 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
   afterField.addEventListener("change", () => edit((s) => (s.after = Number(afterField.value))));
   bold.addEventListener("change", () => edit((s) => (s.bold = bold.checked)));
   italic.addEventListener("change", () => edit((s) => (s.italic = italic.checked)));
+  underline.addEventListener("change", () => edit((s) => (s.underline = underline.checked)));
+  ruleColor.addEventListener("change", () => editRule((r) => (r.color = ruleColor.value)));
+  ruleThickness.addEventListener("change", () => editRule((r) => (r.thickness = Number(ruleThickness.value))));
+  ruleLine.addEventListener("change", () => editRule((r) => (r.line = ruleLine.value as RuleStyle["line"])));
+  ruleWidth.addEventListener("change", () => editRule((r) => (r.width = Number(ruleWidth.value))));
+  ruleBefore.addEventListener("change", () => editRule((r) => (r.before = Number(ruleBefore.value))));
+  ruleAfter.addEventListener("change", () => editRule((r) => (r.after = Number(ruleAfter.value))));
 
   // ---- style list ------------------------------------------------------------
 
-  const tabs = STYLE_IDS.map((id) =>
-    h("button", { class: "sty-tab", type: "button", role: "tab", id: `sty-tab-${id}`, "aria-controls": "sty-panel", text: STYLE_LABELS[id] }),
+  const tabs = TABS.map((id) =>
+    h("button", { class: "sty-tab", type: "button", role: "tab", id: `sty-tab-${id}`, "aria-controls": "sty-panel", text: TAB_LABELS[id] }),
   );
   tabs.forEach((t, i) => {
     t.addEventListener("click", () => {
-      current = STYLE_IDS[i]!;
+      current = TABS[i]!;
       show();
     });
     t.addEventListener("keydown", (e) => {
@@ -115,7 +162,7 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
       if (!step) return;
       e.preventDefault();
       const next = (i + step + tabs.length) % tabs.length;
-      current = STYLE_IDS[next]!;
+      current = TABS[next]!;
       show();
       tabs[next]!.focus();
     });
@@ -124,50 +171,80 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
   const heading = h("h3", { class: "sty-heading" });
   const resetOne = h("button", { class: "btn", type: "button", text: "Reset this style" });
   resetOne.addEventListener("click", () => {
-    draft[current] = { ...DEFAULT_STYLES[current] };
+    if (current === "rule") draft.rule = { ...DEFAULT_STYLES.rule };
+    else draft[current] = { ...DEFAULT_STYLES[current] };
     show();
   });
   const resetAll = h("button", { class: "btn", type: "button", text: "Reset all styles" });
   resetAll.addEventListener("click", () => {
     for (const id of STYLE_IDS) draft[id] = { ...DEFAULT_STYLES[id] };
+    draft.rule = { ...DEFAULT_STYLES.rule };
     show();
   });
 
+  /** A checkbox with the toolbar's icon instead of a word; the name is its tooltip and accessible label. */
+  const emphasis = (box: HTMLInputElement, name: IconName, label: string) => {
+    box.setAttribute("aria-label", label);
+    return h("label", { class: "opt-choice sty-emphasis", title: label }, box, icon(name));
+  };
   const row = (label: string, el: HTMLElement) => [h("label", { for: el.id, text: label }), el];
-  const panel = h(
+  const textGrid = h(
     "div",
-    { class: "sty-panel", id: "sty-panel", role: "tabpanel" },
-    heading,
+    { class: "opt-grid" },
+    ...row("Font", fontField),
+    ...row("Size", sizeField),
+    ...row("Color", colorField),
+    h("span", { text: "Emphasis" }),
     h(
       "div",
-      { class: "opt-grid" },
-      ...row("Font", fontField),
-      ...row("Size", sizeField),
-      ...row("Color", colorField),
-      h("span", { text: "Emphasis" }),
-      h("div", { class: "sty-checks" }, h("label", { class: "opt-choice" }, bold, " Bold"), h("label", { class: "opt-choice" }, italic, " Italic")),
-      ...row("Line spacing", lineField),
-      ...row("Space before", beforeField),
-      ...row("Space after", afterField),
+      { class: "sty-checks" },
+      emphasis(bold, "bold", "Bold"),
+      emphasis(italic, "italic", "Italic"),
+      emphasis(underline, "underline", "Underline"),
     ),
-    h("div", { class: "sty-resets" }, resetOne, resetAll),
+    ...row("Line spacing", lineField),
+    ...row("Space before", beforeField),
+    ...row("Space after", afterField),
   );
+  const ruleGrid = h(
+    "div",
+    { class: "opt-grid" },
+    ...row("Color", ruleColor),
+    ...row("Thickness", ruleThickness),
+    ...row("Line", ruleLine),
+    ...row("Width", ruleWidth),
+    ...row("Space before", ruleBefore),
+    ...row("Space after", ruleAfter),
+  );
+  const panel = h("div", { class: "sty-panel", id: "sty-panel", role: "tabpanel" }, heading, h("div", { class: "sty-grids" }, textGrid, ruleGrid), h("div", { class: "sty-resets" }, resetOne, resetAll));
 
   // ---- preview -----------------------------------------------------------------
 
-  const sample: Record<StyleId, HTMLElement> = {
+  const sample: Record<Tab, HTMLElement> = {
     h1: h("h1", { text: "Heading 1" }),
     h2: h("h2", { text: "Heading 2" }),
     normal: h("p", { text: "Normal text, as most of a document is written. Changing a style changes every paragraph with that style." }),
     h3: h("h3", { text: "Heading 3" }),
     quote: h("blockquote", {}, h("p", { text: "A quote stands apart from the text around it." })),
     code: h("pre", { text: "Code keeps   its spacing\nand its line breaks." }),
+    rule: h("hr"),
   };
-  const preview = h("div", { class: "doc sty-preview", "aria-label": "Preview", role: "img" }, sample.h1, sample.normal, sample.h2, sample.normal.cloneNode(true) as HTMLElement, sample.h3, sample.quote, sample.code);
+  const preview = h(
+    "div",
+    { class: "doc sty-preview", "aria-label": "Preview", role: "img" },
+    sample.h1,
+    sample.normal,
+    sample.h2,
+    sample.normal.cloneNode(true) as HTMLElement,
+    sample.rule,
+    sample.h3,
+    sample.quote,
+    sample.code,
+  );
 
   function render() {
     applyStyles(preview, { font, styles: draft });
-    for (const id of STYLE_IDS) sample[id].classList.toggle("sty-current", id === current);
+    for (const id of TABS) sample[id].classList.toggle("sty-current", id === current);
   }
 
   const body = h(

@@ -79,3 +79,42 @@ test("headings and quotes lose hand-set font, size and color, but keep emphasis"
   assert.equal(lockedRole(next.apply(next.tr.setSelection(TextSelection.create(next.doc, 9)))), null);
   assert.equal(lockedRole(next.apply(next.tr.setSelection(TextSelection.create(next.doc, 2, 10)))), null, "a selection with Normal text is not locked");
 });
+
+test("underline is a style option and reaches the editor, Word and RTF", () => {
+  const styles = normalizeStyles({ h1: { underline: true }, normal: { underline: "yes" } })!;
+  assert.equal(styles.h1.underline, true);
+  assert.equal(styles.normal.underline, false, "only true or false");
+  const vars = new Map(styleVars({ styles }));
+  assert.equal(vars.get("--s-h1-deco"), "underline");
+  assert.equal(vars.get("--s-normal-deco"), "none");
+  const sample = sampleDoc();
+  const doc = sample.type.create({ ...sample.attrs, styles }, sample.content);
+  const word = toDocxParts(doc, "t").find((p) => p.name === "word/styles.xml")!.content;
+  assert.match(word, /w:styleId="Heading1">.*?<w:u w:val="single"\/><\/w:rPr>/);
+  assert.match(word, /w:styleId="Heading2">.*?<w:u w:val="none"\/><\/w:rPr>/);
+  assert.match(toRtf(doc), /\{\\f\d+\\fs48\\b\\ul Letter to Ada\}/);
+});
+
+test("the horizontal rule style is checked and reaches the editor, Word and RTF", () => {
+  assert.deepEqual(normalizeStyles({})!.rule, DEFAULT_STYLES.rule, "documents with older styles get the default rule");
+  const rule = normalizeStyles({ rule: { color: "red", thickness: 3, line: "dashed", width: 50, before: 6, after: 20 } })!.rule;
+  assert.deepEqual(rule, { color: "red", thickness: 3, line: "dashed", width: 50, before: 6, after: 20 });
+  const bad = normalizeStyles({ rule: { color: "red;x", thickness: 7, line: "groove", width: 33, before: -1 } })!.rule;
+  assert.deepEqual(bad, DEFAULT_STYLES.rule);
+
+  const styles = { rule };
+  const vars = new Map(styleVars({ styles }));
+  assert.deepEqual(
+    ["color", "opacity", "thick", "line", "width", "before"].map((k) => vars.get(`--s-rule-${k}`)),
+    ["#D43B3B", "1", "3pt", "dashed", "50%", "6pt"],
+  );
+  assert.equal(new Map(styleVars({})).get("--s-rule-color"), "var(--rule-auto)", "automatic follows the theme");
+
+  const sample = sampleDoc();
+  const doc = sample.type.create({ ...sample.attrs, styles }, sample.content);
+  const xml = toDocxParts(doc, "t").find((p) => p.name === "word/document.xml")!.content;
+  assert.match(xml, /<w:pBdr><w:bottom w:val="dashed" w:sz="24" w:space="1" w:color="D43B3B"\/><\/w:pBdr><w:spacing w:before="120" w:after="400"[^>]*\/><w:ind w:left="2257" w:right="2257"\/>/);
+  assert.match(toRtf(doc), /\\pard\\plain\\sb120\\sa400\\li2257\\ri2257\\brdrb\\brdrdash\\brdrw60\\brdrcf1\\brsp20\\fs2 \\par/);
+  const plain = toDocxParts(sampleDoc(), "t").find((p) => p.name === "word/document.xml")!.content;
+  assert.match(plain, /<w:bottom w:val="single" w:sz="12" w:space="1" w:color="auto"\/>/, "the default is 1.5 pt, in the text color");
+});

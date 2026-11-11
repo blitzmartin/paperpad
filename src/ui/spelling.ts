@@ -4,8 +4,8 @@
 // It checks one language: the one the webview was started with, which Tauri
 // sets to the Windows display language. The app cannot choose another one.
 
-/** Spell checking is on unless it was turned off. */
-export const parseSpellcheck = (raw: string | null): boolean => raw !== "off";
+/** Spell checking is off unless it was turned on. */
+export const parseSpellcheck = (raw: string | null): boolean => raw === "on";
 
 export const storedSpellcheck = (on: boolean): string => (on ? "on" : "off");
 

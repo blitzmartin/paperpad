@@ -3,17 +3,17 @@
 A fast, light and local-first word processor with a modern retro 90s look.
 Think WordPad in 1995, with a softer palette, a dark mode and today's file formats.
 
-- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, image, horizontal line, code block, clear formatting.
+- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, image, horizontal rule, code block, clear formatting.
 - **Images** from the toolbar, Format, Add image, Ctrl+Shift+G or the right-click menu, or by pasting or dropping them on the page. PNG, JPEG, GIF, WebP and BMP files work. Each image is saved inside the document, so the file stays one standalone `.html`. Large photos are scaled down to 2000 pixels on the longest side and their metadata, such as the place a photo was taken, is removed. Right-click an image (or use Format) to choose its size (Original size, Small, Medium, Large or Page width), its alignment and its alternative text. With Left, text around or Right, text around the image sits on that side and the text after it flows beside it, as in Word. Word, RTF and PDF exports include the images (RTF places them on their side, without text around); Markdown and plain text show the alternative text in brackets instead, like `[Image: A cat]`.
 - **Right-click menu** in the document with cut, copy, paste and the image tools. Shift+right-click shows the system menu, with the spelling suggestions.
 - **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
 - **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print and the status bar shows which page you are on. Infinite view is one long sheet.
 - **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off and a document opened in it loses them the next time it is saved.
 - **Word count** in the status bar, with the count for the selection when text is selected.
-- **Paragraph styles** in Format, Styles: choose the font, size, color, bold and italic, line spacing and spacing of Normal text, Heading 1 to 3, Quote and Code. A change reaches every paragraph with that style, even ones written earlier. In headings, quotes and code the font, size and color always come from the style, so the toolbar greys them out there and the document stays consistent. Styles are saved with each document. New documents start from the default styles with your default font.
-- **Default font** of your choice in View, Options. New documents start with it and it is saved with each document, so a file looks the same on any computer.
+- **Paragraph styles** in Format, Styles: choose the font, size, color, bold, italic and underline, line spacing and spacing of Normal text, Heading 1 to 3, Quote and Code, and the color, thickness, line (solid, dashed, dotted or double), width and spacing of the horizontal rule. A change reaches every paragraph with that style (or every rule), even ones written earlier. In headings, quotes and code the font, size and color always come from the style, so the toolbar greys them out there and the document stays consistent. Styles are saved with each document. New documents start from the default styles with your default font.
+- **Default font** of your choice in View, Options (Trebuchet MS until you choose one). New documents start with it and it is saved with each document, so a file looks the same on any computer.
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
-- **Spell checking** you can turn on and off in View, Options. It checks the Windows display language only, so words in other languages are underlined too.
+- **Spell checking** you can turn on in View, Options (it is off until you do). It checks the Windows display language only, so words in other languages are underlined too.
 - **Themes:** Sage, Gray, Sand, Slate, Rose and Lilac, all soft on the eyes, from View, Theme. Each one has a light and a dark mode, which follows your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
 - **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links and it stays readable as plain text, so your writing is never locked in.
@@ -32,7 +32,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 | Caret | Thin line | Thin line | Thick line |
 | Smooth scrolling | Off | On | On |
 
-The caret never blinks while you type, only after half a second of pause. Smooth is the default. If Windows or your system is set to reduce animations, Classic is the default instead. Any preset can be adjusted under Advanced.
+The caret never blinks while you type, only after half a second of pause. Calm is the default. If Windows or your system is set to reduce animations, Classic is the default instead. Any preset can be adjusted under Advanced.
 
 ## Download
 

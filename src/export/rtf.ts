@@ -7,7 +7,7 @@
 import type { Mark, Node as PMNode } from "prosemirror-model";
 import { base64ToBytes, displaySize, EXPORT_COLUMN, parseDataUrl } from "../editor/image.ts";
 import { COLORS, docFont, FONTS, HIGHLIGHTS } from "../editor/palette.ts";
-import { colorKey, type ResolvedStyle, resolveStyles, type StyleId } from "../editor/styles.ts";
+import { colorKey, type ResolvedStyle, resolveRule, resolveStyles, type RuleStyle, type StyleId } from "../editor/styles.ts";
 
 const TWIPS_PER_INDENT = 720; // half an inch
 
@@ -41,6 +41,7 @@ const fontIndex = new Map(FONTS.map((f, i) => [f.key, i]));
 /** The document's default font and paragraph styles, set by toRtf before anything is written. */
 let docFontKey = FONTS[0]!.key;
 let styles = resolveStyles({});
+let rule = resolveRule({});
 
 function header(pageNumbers: boolean): string {
   const fonts = FONTS.map((f, i) => `{\\f${i}\\f${f.rtfFamily}\\fcharset0 ${f.name};}`).join("");
@@ -55,7 +56,7 @@ function runControls(marks: readonly Mark[], base: ResolvedStyle): string {
   let font = base.font.key;
   let size = base.size;
   const color = colorKey(base.color);
-  let c = (base.bold ? "\\b" : "") + (base.italic ? "\\i" : "") + (color ? `\\cf${colorIndex.get("c:" + color) ?? 0}` : "");
+  let c = (base.bold ? "\\b" : "") + (base.italic ? "\\i" : "") + (base.underline ? "\\ul" : "") + (color ? `\\cf${colorIndex.get("c:" + color) ?? 0}` : "");
   for (const m of marks) {
     switch (m.type.name) {
       case "strong": c += "\\b"; break;
@@ -100,6 +101,18 @@ function picture(node: PMNode): string {
 }
 
 // RTF has no simple text wrapping: images with text around are aligned to their side.
+const RULE_LINE: Record<RuleStyle["line"], string> = { solid: "\\brdrs", dashed: "\\brdrdash", dotted: "\\brdrdot", double: "\\brdrdb" };
+
+/** The horizontal rule: a tiny empty paragraph with a bottom border in the rule's style. */
+function ruleParagraph(r: RuleStyle): string {
+  const key = colorKey(r.color);
+  const color = key ? `\\brdrcf${colorIndex.get("c:" + key) ?? 0}` : "";
+  // RTF border widths are twips, at most 75.
+  const width = Math.min(75, Math.max(1, Math.round(r.thickness * 20)));
+  const side = Math.round(((11906 - 2 * 1440) * (100 - r.width)) / 200);
+  return `\\pard\\plain\\sb${r.before * 20}\\sa${r.after * 20}\\li${side}\\ri${side}\\brdrb${RULE_LINE[r.line]}\\brdrw${width}${color}\\brsp20\\fs2 \\par\n`;
+}
+
 const ALIGN: Record<string, string> = { left: "\\ql", center: "\\qc", right: "\\qr", justify: "\\qj", "wrap-left": "\\ql", "wrap-right": "\\qr" };
 
 /** A paragraph with the spacing of its style (points become twips). */
@@ -126,7 +139,7 @@ function walk(node: PMNode, indent: number, out: string[], quote = false) {
   } else if (name === "image") {
     out.push(`\\pard\\plain${ALIGN[node.attrs.align as string] ?? ""}\\li${indent * TWIPS_PER_INDENT} ${picture(node)}\\par\n`);
   } else if (name === "horizontal_rule") {
-    out.push(`\\pard\\plain\\brdrb\\brdrs\\brdrw10\\brsp20 \\par\n`);
+    out.push(ruleParagraph(rule));
   } else if (name === "blockquote") {
     node.forEach((c) => walk(c, indent + 1, out, true));
   } else if (name === "bullet_list" || name === "ordered_list") {
@@ -151,6 +164,7 @@ function walk(node: PMNode, indent: number, out: string[], quote = false) {
 export function toRtf(doc: PMNode): string {
   docFontKey = docFont(doc.attrs.font).key;
   styles = resolveStyles(doc.attrs);
+  rule = resolveRule(doc.attrs);
   const out: string[] = [header(!!doc.attrs.pageNumbers)];
   doc.forEach((n) => walk(n, 0, out));
   out.push("}\n");

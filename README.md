@@ -12,7 +12,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Spell checking** you can turn on and off in View, Options. It checks the Windows display language only, so words in other languages are underlined too.
 - **Light and dark mode**, following your system until you choose.
 - **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
-- **Native format:** a small standalone `.html` file that any browser can open forever.
+- **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links, and it stays readable as plain text, so your writing is never locked in.
 - **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
 - **Crash recovery:** unsaved work is kept in the app data folder every 15 seconds.

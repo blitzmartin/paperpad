@@ -722,6 +722,7 @@ export function startApp() {
         SEP,
         A.clearFormatting,
         SEP,
+        A.updateNormal,
         A.styles,
       ],
     },

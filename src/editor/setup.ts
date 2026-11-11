@@ -63,6 +63,9 @@ const stylesPlugin = new Plugin({
 
 const listItem = schema.nodes.list_item;
 
+/** Enter: splits list items, then blocks. Wrapped whole, so lists keep the formatting too (see keepMarksOnEnter). */
+export const enter = cmd.keepMarksOnEnter(chainCommands(splitListItem(listItem), baseKeymap.Enter!));
+
 function plugins(): Plugin[] {
   return [
     history({ depth: 500 }),
@@ -74,7 +77,7 @@ function plugins(): Plugin[] {
     keymap({
       ...actionKeymap(),
       "Shift-Enter": chainCommands(exitCode, cmd.insertLineBreak),
-      Enter: splitListItem(listItem),
+      Enter: enter,
       // Like a classic word processor: Tab nests list items, otherwise types a tab.
       Tab: chainCommands(sinkListItem(listItem), cmd.insertTab),
       "Shift-Tab": liftListItem(listItem),

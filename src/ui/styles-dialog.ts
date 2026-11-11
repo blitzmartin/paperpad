@@ -253,7 +253,7 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
     h("div", { class: "sty-list", role: "tablist", "aria-label": "Styles", "aria-orientation": "vertical" }, ...tabs),
     panel,
     preview,
-    h("p", { class: "opt-note sty-note", text: "Styles belong to this document and are saved with it. In headings, quotes and code, the font, size and color come from the style." }),
+    h("p", { class: "opt-note sty-note", text: "Styles belong to this document and are saved with it. In headings, quotes and code, the font, size and color come from the style. Normal text with a font or size set in the toolbar keeps it: use Format, Update Normal to match to bring it into the style." }),
   );
 
   show();

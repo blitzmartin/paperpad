@@ -6,9 +6,12 @@ import { lift, setBlockType } from "prosemirror-commands";
 import type { Attrs, MarkType, Node as PMNode, NodeType } from "prosemirror-model";
 import { liftListItem, sinkListItem, wrapInList } from "prosemirror-schema-list";
 import { type Command, type EditorState, NodeSelection, TextSelection } from "prosemirror-state";
+import { docFont, isSize } from "./palette.ts";
+import { lockedRole } from "./roles.ts";
 import { type Align, MAX_INDENT, schema } from "./schema.ts";
+import { normalizeStyles } from "./styles.ts";
 
-const { nodes: N } = schema;
+const { nodes: N, marks: M } = schema;
 
 const isList = (t: NodeType) => t === N.bullet_list || t === N.ordered_list;
 
@@ -41,6 +44,66 @@ export function setKeyedMark(type: MarkType, key: string | null): Command {
     return true;
   };
 }
+
+/**
+ * Format, Update Normal to match: Normal's font and size become those of the
+ * text at the selection, like "Update 'Normal text' to match" in Google Docs.
+ * Only for Normal text: other roles take font and size from their own style.
+ *
+ * Afterwards, font and size marks equal to Normal's new values change nothing
+ * on screen, so they are removed everywhere. The text that carried them then
+ * follows Normal again, and a later change in Format, Styles reaches it.
+ * One undo step.
+ */
+export const updateNormalToMatch: Command = (state, dispatch) => {
+  if (lockedRole(state) !== null) return false;
+  if (dispatch) {
+    const { attrs } = state.doc;
+    // normalizeStyles({}) is a fresh copy of the defaults, for documents that stored none.
+    const styles = normalizeStyles(attrs.styles) ?? normalizeStyles({})!;
+    // A mixed selection has no single font or size: that part of Normal stays as it is.
+    const font = markKey(state, M.font) ?? docFont(attrs.font).key;
+    const sizeKey = markKey(state, M.size);
+    const size = sizeKey !== null && isSize(Number(sizeKey)) ? Number(sizeKey) : styles.normal.size;
+
+    const tr = state.tr;
+    if (docFont(attrs.font).key !== font) tr.setDocAttribute("font", font);
+    if (styles.normal.size !== size) tr.setDocAttribute("styles", { ...styles, normal: { ...styles.normal, size } });
+    const redundant = [M.font.create({ key: font }), M.size.create({ key: String(size) })];
+    // One pass over the document per mark: O(n) in its size.
+    for (const mark of redundant) tr.removeMark(0, tr.doc.content.size, mark);
+    // Changing the document drops the caret's stored marks; keep the ones still needed.
+    if (state.storedMarks) tr.setStoredMarks(state.storedMarks.filter((m) => !redundant.some((r) => r.eq(m))));
+    dispatch(tr);
+  }
+  return true;
+};
+
+/**
+ * Wraps the Enter command so a new Normal paragraph (or list item) keeps the
+ * character formatting at the caret, as in Google Docs and Word: a font picked
+ * in the toolbar stays on the next line instead of falling back to Normal's.
+ * Headings and code blocks are left alone, so the paragraph after a heading
+ * starts clean. Inline code does not carry over.
+ */
+export const keepMarksOnEnter =
+  (enter: Command): Command =>
+  (state, dispatch) => {
+    const { $from, $to } = state.selection;
+    if ($from.parent.type !== N.paragraph) return enter(state, dispatch);
+    // Stored marks are what the user picked for the next text; otherwise the marks
+    // before the caret. At the start of a line there is nothing before it to keep.
+    const marks = state.storedMarks ?? ($to.parentOffset ? $from.marks() : null);
+    const kept = marks && M.code.removeFromSet(marks);
+    return enter(
+      state,
+      dispatch &&
+        ((tr) => {
+          if (kept?.length) tr.ensureMarks(kept);
+          dispatch(tr);
+        }),
+    );
+  };
 
 /** Removes all character formatting from the selection. */
 export const clearFormatting: Command = (state, dispatch) => {

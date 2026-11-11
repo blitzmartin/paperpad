@@ -123,11 +123,13 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
       el.title = role ? lockTitle(role) : title;
     });
 
+  // Normal's font (the document's font) needs no mark, like Normal's size below.
+  let normalFont = "";
   const fontSelect = select(
     "Font",
     "w-font",
     [["", "Default"], ...FONTS.map((f): [string, string] => [f.key, f.label])],
-    (v) => run(cmd.setKeyedMark(M.font, v || null)),
+    (v) => run(cmd.setKeyedMark(M.font, v && v !== normalFont ? v : null)),
     (s) => {
       const role = lockedRole(s);
       return role ? style(s, role).font.key : (cmd.markKey(s, M.font) ?? "");
@@ -138,6 +140,7 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
   const defaultOption = fontSelect.options[0]!;
   updaters.push((s) => {
     const f = docFont(s.doc.attrs.font);
+    normalFont = f.key;
     defaultOption.text = `Default (${f.label})`;
     defaultOption.className = `ff-${f.key}`;
   });

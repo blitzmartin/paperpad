@@ -118,3 +118,75 @@ test("the horizontal rule style is checked and reaches the editor, Word and RTF"
   const plain = toDocxParts(sampleDoc(), "t").find((p) => p.name === "word/document.xml")!.content;
   assert.match(plain, /<w:bottom w:val="single" w:sz="12" w:space="1" w:color="auto"\/>/, "the default is 1.5 pt, in the text color");
 });
+
+test("Enter keeps the font and size picked for Normal text, but not after a heading", async () => {
+  const { EditorState, TextSelection } = await import("prosemirror-state");
+  const { schema } = await import("../src/editor/schema.ts");
+  const { enter } = await import("../src/editor/setup.ts");
+  const m = schema.marks;
+  const georgia = [m.font.create({ key: "georgia" }), m.size.create({ key: "16" })];
+  const press = (state: InstanceType<typeof EditorState>) => {
+    let next = state;
+    assert.ok(enter(state, (tr) => (next = state.apply(tr))));
+    return next;
+  };
+  const keys = (marks: readonly { type: { name: string }; attrs: { key?: unknown } }[] | null) => (marks ?? []).map((x) => `${x.type.name}:${x.attrs.key ?? ""}`);
+
+  // Typed text, caret at its end: the new paragraph starts in Georgia 16.
+  const typed = schema.node("doc", null, [schema.node("paragraph", null, [schema.text("Hello", [...georgia, m.code.create()])])]);
+  let state = EditorState.create({ doc: typed, selection: TextSelection.create(typed, 6) });
+  state = press(state);
+  assert.equal(state.selection.$from.parent.content.size, 0, "the caret is in the new paragraph");
+  assert.deepEqual(keys(state.storedMarks), ["font:georgia", "size:16"], "inline code does not carry over");
+  // Pressing Enter again on the empty line still keeps them.
+  assert.deepEqual(keys(press(state).storedMarks), ["font:georgia", "size:16"]);
+
+  // A font picked on an empty line (stored marks) survives Enter before typing.
+  const empty = schema.node("doc", null, [schema.node("paragraph")]);
+  state = EditorState.create({ doc: empty }).apply(EditorState.create({ doc: empty }).tr.setStoredMarks(georgia));
+  assert.deepEqual(keys(press(state).storedMarks), ["font:georgia", "size:16"]);
+
+  // List items keep them too.
+  const list = schema.node("doc", null, [schema.node("bullet_list", null, [schema.node("list_item", null, [schema.node("paragraph", null, [schema.text("Item", georgia)])])])]);
+  state = press(EditorState.create({ doc: list, selection: TextSelection.create(list, 7) }));
+  assert.equal(state.doc.firstChild!.childCount, 2, "a new list item");
+  assert.deepEqual(keys(state.storedMarks), ["font:georgia", "size:16"]);
+
+  // After a heading, the next paragraph starts clean.
+  const heading = schema.node("doc", null, [schema.node("heading", { level: 1 }, [schema.text("Title", [m.strong.create()])])]);
+  state = press(EditorState.create({ doc: heading, selection: TextSelection.create(heading, 6) }));
+  assert.equal(state.selection.$from.parent.type, schema.nodes.paragraph);
+  assert.deepEqual(keys(state.storedMarks), []);
+});
+
+test("Update Normal to match copies font and size into Normal and drops marks that became redundant", async () => {
+  const { EditorState, TextSelection } = await import("prosemirror-state");
+  const { schema } = await import("../src/editor/schema.ts");
+  const { updateNormalToMatch } = await import("../src/editor/commands.ts");
+  const m = schema.marks;
+  const georgia16 = [m.font.create({ key: "georgia" }), m.size.create({ key: "16" })];
+  const doc = schema.node("doc", { font: "trebuchet" }, [
+    schema.node("paragraph", null, [schema.text("Here", georgia16)]),
+    schema.node("paragraph", null, [schema.text("Also", [m.font.create({ key: "georgia" })]), schema.text("Times", [m.font.create({ key: "times" })])]),
+    schema.node("heading", { level: 1 }, [schema.text("Title")]),
+  ]);
+  const state = EditorState.create({ doc, selection: TextSelection.create(doc, 3) });
+  let next = state;
+  assert.ok(updateNormalToMatch(state, (tr) => (next = state.apply(tr))));
+  assert.equal(next.doc.attrs.font, "georgia");
+  assert.equal(resolveStyles(next.doc.attrs).normal.size, 16);
+  assert.equal(resolveStyles(next.doc.attrs).h1.size, 24, "other styles are untouched");
+  const marksOf = (text: string) => {
+    let out: string[] = [];
+    next.doc.descendants((n) => void (n.isText && n.text === text && (out = n.marks.map((x) => `${x.type.name}:${x.attrs.key}`))));
+    return out;
+  };
+  assert.deepEqual(marksOf("Here"), [], "the text now follows Normal");
+  assert.deepEqual(marksOf("Also"), [], "so does other text in the same font");
+  assert.deepEqual(marksOf("Times"), ["font:times"], "other fonts stay");
+  assert.ok(next.doc.attrs.styles, "the document now stores its styles");
+
+  // Not in a heading: there font and size come from the heading's style.
+  const inHeading = EditorState.create({ doc, selection: TextSelection.create(doc, doc.content.size - 2) });
+  assert.equal(updateNormalToMatch(inHeading), false);
+});

@@ -10,7 +10,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print and the status bar shows which page you are on. Infinite view is one long sheet.
 - **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off and a document opened in it loses them the next time it is saved.
 - **Word count** in the status bar, with the count for the selection when text is selected.
-- **Paragraph styles** in Format, Styles: choose the font, size, color, bold, italic and underline, line spacing and spacing of Normal text, Heading 1 to 3, Quote and Code, and the color, thickness, line (solid, dashed, dotted or double), width and spacing of the horizontal rule. A change reaches every paragraph with that style (or every rule), even ones written earlier. In headings, quotes and code the font, size and color always come from the style, so the toolbar greys them out there and the document stays consistent. Styles are saved with each document. New documents start from the default styles with your default font.
+- **Paragraph styles** in Format, Styles: choose the font, size, color, bold, italic and underline, line spacing and spacing of Normal text, Heading 1 to 3, Quote and Code, and the color, thickness, line (solid, dashed, dotted or double), width and spacing of the horizontal rule. A change reaches every paragraph with that style (or every rule), even ones written earlier. In headings, quotes and code the font, size and color always come from the style, so the toolbar greys them out there and the document stays consistent. In Normal text the toolbar sets the font and size of the text itself, as in Google Docs or Word (see [Styles and the toolbar](#styles-and-the-toolbar)). Styles are saved with each document. New documents start from the default styles with your default font.
 - **Default font** of your choice in View, Options (Trebuchet MS until you choose one). New documents start with it and it is saved with each document, so a file looks the same on any computer.
 - **Fonts:** Arial, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New and Comic Sans MS from your system, plus four open fonts that come with PaperPad and look the same on every computer: Atkinson Hyperlegible (made for easy reading), Inter, Literata (for long texts) and JetBrains Mono (the font of the Code style and of code inside a line). A saved file or a Word or RTF export opened on a computer without them uses a similar font instead.
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
@@ -34,6 +34,24 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 | Smooth scrolling | Off | On | On |
 
 The caret never blinks while you type, only after half a second of pause. Calm is the default. If Windows or your system is set to reduce animations, Classic is the default instead. Any preset can be adjusted under Advanced.
+
+## Styles and the toolbar
+
+Normal text has two layers of formatting, as in Google Docs and Word:
+
+1. **The Normal style**, set in Format, Styles. It is the look of every Normal paragraph that has nothing set by hand.
+2. **Formatting set by hand**, from the toolbar: a font, a size, a color, bold and so on. It applies to the text you select, or to what you type next, and it wins over the style.
+
+What this means in practice:
+
+- **Pressing Enter keeps your formatting.** If you pick Georgia 14 in the toolbar and write, the next line is Georgia 14 too, in paragraphs and in lists. After a heading the next paragraph starts again from the Normal style.
+- **Changing Normal in Format, Styles changes all Normal text that has no font or size set by hand.** Text with its own font or size keeps it. So if you picked a font in the toolbar and wrote the whole document with it, changing Normal's font in Styles changes nothing you can see.
+- **Format, Update Normal to match** turns what you set by hand into the style. Put the caret in the text (or select it) and choose it: Normal takes that font and size, so Normal text with nothing set by hand changes to match. All text set by hand to that same font or size looks the same as before, but it follows the Normal style again, so later changes in Format, Styles reach it. Undo reverts it in one step.
+- **Format, Clear formatting** removes what you set by hand from the selection, so it follows the Normal style.
+- Picking Normal's own font or size in the toolbar sets nothing by hand: the text simply follows the style. The font list shows it as "Default".
+- **Headings, quotes and code** have no second layer for font, size and color: these always come from their style, so the toolbar greys them out there. Bold, italic, underline, strikethrough and highlight stay free everywhere.
+
+One difference from Google Docs: an empty line keeps the formatting only while the caret stays on it. If you click away and come back to an empty line, it starts from the Normal style.
 
 ## Download
 

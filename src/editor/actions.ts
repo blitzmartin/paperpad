@@ -61,6 +61,7 @@ export const EDITOR_ACTIONS = {
   rule: { label: "Horizontal rule", command: cmd.insertRule },
   codeBlock: { label: "Code block", command: cmd.toggleCodeBlock, active: (s) => cmd.currentBlockStyle(s) === "code" },
   clearFormatting: { label: "Clear formatting", keys: ["Mod-\\"], command: cmd.clearFormatting },
+  updateNormal: { label: "Update Normal to match", command: cmd.updateNormalToMatch, enabled: cmd.updateNormalToMatch },
   pageNumbers: { label: "Page numbers", command: cmd.togglePageNumbers, active: cmd.pageNumbersOn },
 } satisfies Record<string, EditorAction>;
 

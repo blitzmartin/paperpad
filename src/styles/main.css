@@ -714,7 +714,7 @@ input {
   font-weight: var(--s-code-weight);
   font-style: var(--s-code-style);
   line-height: var(--s-code-lh, 1.4);
-  color: var(--s-code-color);
+  color: var(--s-code-color, var(--soft));
   margin: var(--s-code-before, 0) 0 var(--s-code-after, 6pt);
   text-decoration: var(--s-code-deco, none);
   padding: 0.6em 0.8em;

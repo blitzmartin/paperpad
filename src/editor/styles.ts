@@ -82,7 +82,7 @@ export const DEFAULT_STYLES: DocStyles = {
   h2: heading(18, 16, 6),
   h3: heading(14, 12, 4),
   quote: { ...base, color: SOFT_COLOR },
-  code: { ...base, font: "jetbrains", size: 10, lineHeight: 1.4 },
+  code: { ...base, font: "jetbrains", size: 10, color: SOFT_COLOR, lineHeight: 1.4 },
   rule: DEFAULT_RULE,
 };
 

@@ -1,6 +1,6 @@
 [package]
 name = "paperpad"
-version = "0.2.0"
+version = "0.2.1"
 description = "A fast, light, local-first word processor with a modern retro 90s look"
 authors = ["Paper Board Labs"]
 license = "PolyForm-Noncommercial-1.0.0"

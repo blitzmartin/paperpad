@@ -15,6 +15,8 @@ export interface ModalOptions {
   buttons: ModalButton[];
   /** Returned when the user presses Escape or closes the window. */
   cancelId: string;
+  /** A wider window for dialogs laid out in columns, like Format > Styles. */
+  wide?: boolean;
 }
 
 let open = false;
@@ -40,7 +42,7 @@ export function showModal(opts: ModalOptions): Promise<string> {
     const titleId = `modal-title-${Date.now()}`;
     const win = h(
       "div",
-      { class: "window modal", role: "dialog", "aria-modal": "true", "aria-labelledby": titleId },
+      { class: `window modal${opts.wide ? " modal-wide" : ""}`, role: "dialog", "aria-modal": "true", "aria-labelledby": titleId },
       h("div", { class: "titlebar" }, h("span", { id: titleId, text: opts.title }), h("button", { class: "close", type: "button", "aria-label": "Close", text: "×", on: { click: () => finish(opts.cancelId) } })),
       h("div", { class: "modal-body" }, typeof opts.body === "string" ? h("p", { text: opts.body }) : opts.body),
       h("div", { class: "modal-buttons" }, ...buttons),

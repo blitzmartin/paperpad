@@ -265,6 +265,7 @@ export async function openStylesDialog(attrs: { font?: unknown; styles?: unknown
       { id: "cancel", label: "Cancel" },
     ],
     cancelId: "cancel",
+    wide: true,
   });
   if (result !== "ok") return null;
   const stylesChanged = JSON.stringify(draft) !== JSON.stringify(initial);

@@ -1361,6 +1361,9 @@ input {
 .modal {
   width: min(420px, calc(100vw - 32px));
 }
+.modal-wide {
+  width: min(600px, calc(100vw - 32px));
+}
 .modal-body {
   padding: 14px 16px 6px;
   user-select: text;
@@ -1800,7 +1803,7 @@ kbd {
     "preview preview"
     "note note";
   gap: 10px 14px;
-  width: min(560px, 100%);
+  width: 100%;
 }
 .sty-list {
   grid-area: list;
@@ -1844,6 +1847,13 @@ kbd {
 .sty-grids > .opt-grid {
   grid-area: 1 / 1;
   align-content: start;
+  /* A select is as wide as its longest option ("Same as Normal (...)"):
+     let the column shrink below that so a field never leaves the window. */
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.sty-grids .field {
+  min-width: 0;
+  max-width: 100%;
 }
 .sty-grids > .opt-grid[hidden] {
   display: grid;

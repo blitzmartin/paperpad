@@ -10,9 +10,11 @@ import { EditorView } from "prosemirror-view";
 import { actionKeymap } from "./actions.ts";
 import { caretPlugin } from "./caret.ts";
 import * as cmd from "./commands.ts";
-import { arrowOverBreak, pagesPlugin } from "./pages.ts";
+import { arrowOverBreak, pagesPlugin, relayoutPages } from "./pages.ts";
 import { docFont } from "./palette.ts";
+import { lockTransaction, styleLockPlugin } from "./roles.ts";
 import { schema } from "./schema.ts";
+import { styleVars } from "./styles.ts";
 
 /**
  * A horizontal rule is a leaf node. If it is the last thing in the document,
@@ -38,13 +40,36 @@ const keepTrailingParagraph = new Plugin({
   },
 });
 
+/** Renders the document's paragraph styles as CSS variables on the editor element. */
+export function applyStyles(el: HTMLElement, attrs: PMNode["attrs"]) {
+  for (const [name, value] of styleVars(attrs)) el.style.setProperty(name, value);
+}
+
+const stylesPlugin = new Plugin({
+  view(view) {
+    applyStyles(view.dom, view.state.doc.attrs);
+    return {
+      update(view, prev) {
+        const a = view.state.doc.attrs;
+        const b = prev.doc.attrs;
+        if (a.font === b.font && a.styles === b.styles) return;
+        applyStyles(view.dom, a);
+        // Pages were measured with the old styles.
+        relayoutPages();
+      },
+    };
+  },
+});
+
 const listItem = schema.nodes.list_item;
 
 function plugins(): Plugin[] {
   return [
     history({ depth: 500 }),
     keepTrailingParagraph,
+    styleLockPlugin,
     caretPlugin,
+    stylesPlugin,
     pagesPlugin,
     keymap({
       ...actionKeymap(),
@@ -68,7 +93,11 @@ export function newState(doc?: PMNode): EditorState {
   // Documents opened from file may end with a rule, so add the paragraph here too.
   const para = doc && trailingBlock(doc);
   if (doc && para) doc = doc.copy(doc.content.append(Fragment.from(para)));
-  return EditorState.create({ schema, doc, plugins: plugins() });
+  const state = EditorState.create({ schema, doc, plugins: plugins() });
+  // Opened files may have a font, size or color set by hand in a heading or
+  // quote: their style decides those now. Not an edit, so not undoable.
+  const lock = lockTransaction(state);
+  return lock ? state.apply(lock.setMeta("addToHistory", false)) : state;
 }
 
 export function createView(mount: HTMLElement, onChange: (state: EditorState) => void): EditorView {
@@ -76,13 +105,13 @@ export function createView(mount: HTMLElement, onChange: (state: EditorState) =>
     state: newState(),
     // No spellcheck here: ProseMirror would reset it on every update.
     // View > Options sets it (see initSpelling in ui/options.ts).
-    // The document's default font is a class, like any other font.
-    attributes: (state) => ({
-      class: `doc ff-${docFont(state.doc.attrs.font).key}`,
+    // The document's font and paragraph styles are CSS variables (stylesPlugin).
+    attributes: {
+      class: "doc",
       "aria-label": "Document",
       role: "textbox",
       "aria-multiline": "true",
-    }),
+    },
     dispatchTransaction(tr: Transaction) {
       view.updateState(view.state.apply(tr));
       onChange(view.state);
@@ -95,7 +124,7 @@ export function createView(mount: HTMLElement, onChange: (state: EditorState) =>
 export function createPreview(mount: HTMLElement, text: string): EditorView {
   const doc = schema.nodes.doc.create(null, schema.nodes.paragraph.create(null, schema.text(text)));
   return new EditorView(mount, {
-    state: EditorState.create({ doc, plugins: [caretPlugin, keymap(baseKeymap)] }),
+    state: EditorState.create({ doc, plugins: [caretPlugin, stylesPlugin, keymap(baseKeymap)] }),
     attributes: { class: "doc preview", spellcheck: "false", "aria-label": "Caret preview" },
   });
 }

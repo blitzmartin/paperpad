@@ -5,7 +5,8 @@
 // Spec: Microsoft "Rich Text Format (RTF) Specification, version 1.9.1".
 
 import type { Mark, Node as PMNode } from "prosemirror-model";
-import { COLORS, DEFAULT_SIZE, docFont, FONTS, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
+import { COLORS, docFont, FONTS, HIGHLIGHTS } from "../editor/palette.ts";
+import { colorKey, type ResolvedStyle, resolveStyles, type StyleId } from "../editor/styles.ts";
 
 const TWIPS_PER_INDENT = 720; // half an inch
 
@@ -36,8 +37,9 @@ COLORS.forEach((c, i) => colorIndex.set("c:" + c.key, i + 1));
 HIGHLIGHTS.forEach((c, i) => colorIndex.set("h:" + c.key, COLORS.length + i + 1));
 const fontIndex = new Map(FONTS.map((f, i) => [f.key, i]));
 
-/** The document's default font, set by toRtf before anything is written. */
+/** The document's default font and paragraph styles, set by toRtf before anything is written. */
 let docFontKey = FONTS[0]!.key;
+let styles = resolveStyles({});
 
 function header(pageNumbers: boolean): string {
   const fonts = FONTS.map((f, i) => `{\\f${i}\\f${f.rtfFamily}\\fcharset0 ${f.name};}`).join("");
@@ -47,16 +49,12 @@ function header(pageNumbers: boolean): string {
   return `{\\rtf1\\ansi\\ansicpg1252\\deff${fontIndex.get(docFontKey) ?? 0}\\uc1{\\fonttbl${fonts}}{\\colortbl${colors}}\\viewkind4\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n${footer}`;
 }
 
-interface Base {
-  bold?: boolean;
-  size?: number;
-  font?: string;
-}
-
-function runControls(marks: readonly Mark[], base: Base): string {
-  let font = base.font ?? docFontKey;
-  let size = base.size ?? DEFAULT_SIZE;
-  let c = base.bold ? "\\b" : "";
+/** Character controls for a run: its paragraph style first, then its marks. */
+function runControls(marks: readonly Mark[], base: ResolvedStyle): string {
+  let font = base.font.key;
+  let size = base.size;
+  const color = colorKey(base.color);
+  let c = (base.bold ? "\\b" : "") + (base.italic ? "\\i" : "") + (color ? `\\cf${colorIndex.get("c:" + color) ?? 0}` : "");
   for (const m of marks) {
     switch (m.type.name) {
       case "strong": c += "\\b"; break;
@@ -73,7 +71,7 @@ function runControls(marks: readonly Mark[], base: Base): string {
   return `\\f${fontIndex.get(font) ?? 0}\\fs${size * 2}${c}`;
 }
 
-function inline(block: PMNode, base: Base): string {
+function inline(block: PMNode, base: ResolvedStyle): string {
   let out = "";
   block.forEach((child) => {
     if (child.isText) out += `{${runControls(child.marks, base)} ${rtfEscape(child.text!)}}`;
@@ -84,23 +82,31 @@ function inline(block: PMNode, base: Base): string {
 
 const ALIGN: Record<string, string> = { left: "\\ql", center: "\\qc", right: "\\qr", justify: "\\qj" };
 
-function para(controls: string, body: string): string {
-  return `\\pard\\plain\\sa120${controls} ${body}\\par\n`;
+/** A paragraph with the spacing of its style (points become twips). */
+function para(st: ResolvedStyle, controls: string, body: string): string {
+  const spacing = `\\sb${st.before * 20}\\sa${st.after * 20}\\sl${Math.round(st.lineHeight * 240)}\\slmult1`;
+  return `\\pard\\plain${spacing}${controls} ${body}\\par\n`;
 }
 
-function walk(node: PMNode, indent: number, out: string[]) {
+/** The style of a text block. Headings keep theirs inside quotes. */
+function styleOf(node: PMNode, quote: boolean): ResolvedStyle {
+  const id: StyleId = node.type.name === "heading" ? (`h${node.attrs.level}` as StyleId) : quote ? "quote" : "normal";
+  return styles[id];
+}
+
+function walk(node: PMNode, indent: number, out: string[], quote = false) {
   const name = node.type.name;
   if (name === "paragraph" || name === "heading") {
     const li = (indent + (node.attrs.indent as number)) * TWIPS_PER_INDENT;
-    const base: Base = name === "heading" ? { bold: true, size: HEADING_SIZES[node.attrs.level as number] } : {};
-    const extra = name === "heading" ? "\\keepn\\sb240" : "";
-    out.push(para(`${ALIGN[node.attrs.align as string] ?? ""}\\li${li}${extra}`, inline(node, base)));
+    const st = styleOf(node, quote);
+    const extra = name === "heading" ? "\\keepn" : "";
+    out.push(para(st, `${ALIGN[node.attrs.align as string] ?? ""}\\li${li}${extra}`, inline(node, st)));
   } else if (name === "code_block") {
-    out.push(para(`\\li${indent * TWIPS_PER_INDENT}`, `{\\f${fontIndex.get("courier")}\\fs20 ${rtfEscape(node.textContent)}}`));
+    out.push(para(styles.code, `\\li${indent * TWIPS_PER_INDENT}`, `{${runControls([], styles.code)} ${rtfEscape(node.textContent)}}`));
   } else if (name === "horizontal_rule") {
     out.push(`\\pard\\plain\\brdrb\\brdrs\\brdrw10\\brsp20 \\par\n`);
   } else if (name === "blockquote") {
-    node.forEach((c) => walk(c, indent + 1, out));
+    node.forEach((c) => walk(c, indent + 1, out, true));
   } else if (name === "bullet_list" || name === "ordered_list") {
     let n = name === "ordered_list" ? (node.attrs.order as number) : 0;
     node.forEach((item) => {
@@ -110,17 +116,19 @@ function walk(node: PMNode, indent: number, out: string[]) {
           const li = (indent + 1) * TWIPS_PER_INDENT;
           const lead = i === 0 ? `${marker}\\tab ` : "";
           const fi = i === 0 ? "\\fi-360" : "";
-          out.push(para(`${fi}\\li${li}\\tx${li}`, lead + inline(child, {})));
-        } else walk(child, indent + 1, out);
+          const st = styleOf(child, quote);
+          out.push(para(st, `${fi}\\li${li}\\tx${li}`, lead + inline(child, st)));
+        } else walk(child, indent + 1, out, quote);
       });
     });
   } else {
-    node.forEach((c) => walk(c, indent, out));
+    node.forEach((c) => walk(c, indent, out, quote));
   }
 }
 
 export function toRtf(doc: PMNode): string {
   docFontKey = docFont(doc.attrs.font).key;
+  styles = resolveStyles(doc.attrs);
   const out: string[] = [header(!!doc.attrs.pageNumbers)];
   doc.forEach((n) => walk(n, 0, out));
   out.push("}\n");

@@ -8,7 +8,9 @@ import type { Command, EditorState } from "prosemirror-state";
 import type { AppActions } from "../app.ts";
 import { BLOCK_STYLES } from "../editor/actions.ts";
 import * as cmd from "../editor/commands.ts";
-import { COLORS, type ColorDef, DEFAULT_SIZE, docFont, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
+import { COLORS, type ColorDef, docFont, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
+import { lockedRole } from "../editor/roles.ts";
+import { colorKey, resolveStyles, STYLE_LABELS, type StyleId } from "../editor/styles.ts";
 import { schema } from "../editor/schema.ts";
 import { type Action, shortcutText } from "./action.ts";
 import { dismissable, h, placeBelow } from "./dom.ts";
@@ -110,29 +112,51 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
     cmd.currentBlockStyle,
   );
 
+  // In every role but Normal, the paragraph style decides font, size and
+  // color: those tools are greyed out and show the style's values.
+  const style = (s: EditorState, role: StyleId) => resolveStyles(s.doc.attrs)[role];
+  const lockTitle = (role: StyleId) => `Set by the ${STYLE_LABELS[role]} style. Change it in Format, Styles.`;
+  const lockable = (el: HTMLSelectElement | HTMLButtonElement, title: string) =>
+    updaters.push((s) => {
+      const role = lockedRole(s);
+      el.disabled = role !== null;
+      el.title = role ? lockTitle(role) : title;
+    });
+
   const fontSelect = select(
     "Font",
     "w-font",
     [["", "Default"], ...FONTS.map((f): [string, string] => [f.key, f.label])],
     (v) => run(cmd.setKeyedMark(M.font, v || null)),
-    (s) => cmd.markKey(s, M.font) ?? "",
+    (s) => {
+      const role = lockedRole(s);
+      return role ? style(s, role).font.key : (cmd.markKey(s, M.font) ?? "");
+    },
   );
   for (const opt of Array.from(fontSelect.options)) if (opt.value) opt.classList.add(`ff-${opt.value}`);
-  // "Default" is the document's own font, chosen in View, Options.
+  // "Default" is the document's own font: Normal's font, set in Format, Styles.
   const defaultOption = fontSelect.options[0]!;
   updaters.push((s) => {
     const f = docFont(s.doc.attrs.font);
     defaultOption.text = `Default (${f.label})`;
     defaultOption.className = `ff-${f.key}`;
   });
+  lockable(fontSelect, "Font");
 
+  // A size equal to Normal's needs no mark.
+  let normalSize = 12;
   const sizeSelect = select(
     "Font size",
     "w-size",
     SIZES.map((n): [string, string] => [String(n), String(n)]),
-    (v) => run(cmd.setKeyedMark(M.size, Number(v) === DEFAULT_SIZE ? null : v)),
-    (s) => cmd.markKey(s, M.size) ?? String(DEFAULT_SIZE),
+    (v) => run(cmd.setKeyedMark(M.size, Number(v) === normalSize ? null : v)),
+    (s) => {
+      normalSize = style(s, "normal").size;
+      const role = lockedRole(s);
+      return String(role ? style(s, role).size : (cmd.markKey(s, M.size) ?? normalSize));
+    },
   );
+  lockable(sizeSelect, "Font size");
 
   const colorPicker = (name: IconName, title: string, type: MarkType, list: readonly ColorDef[], noneLabel: string, prefix: string) => {
     const bar = h("span", { class: "color-bar" });
@@ -161,8 +185,12 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
     });
     btn.classList.add("has-bar");
     btn.append(bar);
+    // Text color is decided by the paragraph style outside Normal text.
+    const lock = type === M.color;
+    if (lock) lockable(btn, title);
     updaters.push((s) => {
-      const key = cmd.markKey(s, type);
+      const role = lock ? lockedRole(s) : null;
+      const key = role ? colorKey(style(s, role).color) : cmd.markKey(s, type);
       bar.className = `color-bar${key ? ` sw-${prefix}${key}` : ""}`;
     });
     return btn;

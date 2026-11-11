@@ -6,8 +6,9 @@
 // everything else, so a hostile .html file cannot inject script or styles.
 
 import { DOMParser as PMDOMParser, DOMSerializer, type Node as PMNode } from "prosemirror-model";
-import { COLORS, DEFAULT_SIZE, docFont, type FontDef, FONTS, HEADING_SIZES, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
+import { COLORS, docFont, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
 import { MAX_INDENT, schema } from "../editor/schema.ts";
+import { exportColor, normalizeStyles, type ResolvedStyle, resolveStyles } from "../editor/styles.ts";
 import { toPlainText } from "../export/text.ts";
 
 export type EditableFormat = "html" | "md" | "txt";
@@ -21,15 +22,28 @@ function escapeHtml(s: string) {
 /** Prints a page number in the bottom margin. Used by saved files and by the app's own print. */
 export const PAGE_NUMBER_CSS = "@page{@bottom-center{content:counter(page);font:9pt Arial,sans-serif;color:#555}}";
 
+/** CSS declarations for one paragraph style. `auto` is the color used for the text color. */
+function styleCss(st: ResolvedStyle, auto = "inherit"): string {
+  return (
+    `font-family:${st.font.stack};font-size:${st.size}pt;line-height:${st.lineHeight};` +
+    `font-weight:${st.bold ? 700 : 400};font-style:${st.italic ? "italic" : "normal"};color:${exportColor(st.color) ?? auto}`
+  );
+}
+
 /** Stylesheet embedded in saved files so they look right in a browser. */
-function standaloneCss(pageNumbers: boolean, font: FontDef): string {
+function standaloneCss(doc: PMNode): string {
+  const st = resolveStyles(doc.attrs);
+  const a = "article.paperpad";
   const rules = [
     `body{margin:0;background:#f4f1ea}`,
-    `article.paperpad{box-sizing:border-box;max-width:21cm;margin:2rem auto;padding:2.5cm;background:#fff;color:#1a1a1a;font-family:${font.stack};font-size:${DEFAULT_SIZE}pt;line-height:1.4;white-space:pre-wrap;tab-size:4}`,
-    `article.paperpad p{margin:0 0 .5em}`,
-    ...Object.entries(HEADING_SIZES).map(([l, s]) => `article.paperpad h${l}{font-size:${s}pt;margin:.8em 0 .4em}`),
-    `article.paperpad blockquote{margin:0 0 .5em;padding-left:1em;border-left:3px solid #999}`,
-    `article.paperpad pre{font-family:"Courier New",monospace;font-size:10pt;background:#f2f2f2;padding:.5em}`,
+    `${a}{box-sizing:border-box;max-width:21cm;margin:2rem auto;padding:2.5cm;background:#fff;${styleCss(st.normal, "#1a1a1a")};white-space:pre-wrap;tab-size:4}`,
+    `${a} p{margin:${st.normal.before}pt 0 ${st.normal.after}pt}`,
+    `${a} li>p{margin:0 0 .2em}`,
+    ...([1, 2, 3] as const).map((l) => `${a} h${l}{${styleCss(st[`h${l}`])};margin:${st[`h${l}`].before}pt 0 ${st[`h${l}`].after}pt}`),
+    `${a} blockquote{${styleCss(st.quote)};margin:${st.quote.before}pt 0 0;padding-left:1em;border-left:3px solid #999}`,
+    `${a} blockquote p{margin:0 0 ${st.quote.after}pt}`,
+    `${a} pre{${styleCss(st.code)};margin:${st.code.before}pt 0 ${st.code.after}pt;background:#f2f2f2;padding:.5em}`,
+    `${a}>:first-child{margin-top:0}`,
     `.al-center{text-align:center}.al-right{text-align:right}.al-justify{text-align:justify}`,
     ...Array.from({ length: MAX_INDENT }, (_, i) => `.ind-${i + 1}{margin-left:${(i + 1) * 0.5}in}`),
     ...FONTS.map((f) => `.ff-${f.key}{font-family:${f.stack}}`),
@@ -37,7 +51,7 @@ function standaloneCss(pageNumbers: boolean, font: FontDef): string {
     ...COLORS.map((c) => `.c-${c.key}{color:${c.hex}}`),
     ...HIGHLIGHTS.map((c) => `.hl-${c.key}{background:${c.hex};color:#1a1a1a}`),
   ];
-  if (pageNumbers) rules.push(PAGE_NUMBER_CSS);
+  if (doc.attrs.pageNumbers) rules.push(PAGE_NUMBER_CSS);
   return rules.join("\n");
 }
 
@@ -47,6 +61,7 @@ export function serializeHtml(doc: PMNode, title: string): string {
   holder.appendChild(fragment);
   const pageNumbers = !!doc.attrs.pageNumbers;
   const font = docFont(doc.attrs.font);
+  const styles = doc.attrs.styles ? ` data-styles="${escapeHtml(JSON.stringify(doc.attrs.styles))}"` : "";
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -54,10 +69,10 @@ export function serializeHtml(doc: PMNode, title: string): string {
     '<meta charset="utf-8">',
     `<meta name="generator" content="PaperPad ${VERSION}">`,
     `<title>${escapeHtml(title)}</title>`,
-    `<style>\n${standaloneCss(pageNumbers, font)}\n</style>`,
+    `<style>\n${standaloneCss(doc)}\n</style>`,
     "</head>",
     "<body>",
-    `<article class="paperpad" data-font="${font.key}"${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,
+    `<article class="paperpad" data-font="${font.key}"${styles}${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,
     "</body>",
     "</html>",
     "",
@@ -74,10 +89,20 @@ export function parseHtml(html: string, font: string): PMNode {
   const ours = dom.querySelector("article.paperpad");
   // Our own files keep tabs and repeated spaces; foreign HTML is normalized.
   const doc = PMDOMParser.fromSchema(schema).parse(ours ?? dom.body, { preserveWhitespace: ours ? true : undefined });
-  // The page number and font settings are document attributes, stored on the article element.
+  // The page number, font and style settings are document attributes, stored on the article element.
   const pageNumbers = ours?.getAttribute("data-page-numbers") === "on";
   const key = docFont(ours ? ours.getAttribute("data-font") : font).key;
-  return doc.type.create({ pageNumbers, font: key }, doc.content);
+  return doc.type.create({ pageNumbers, font: key, styles: readStyles(ours?.getAttribute("data-styles")) }, doc.content);
+}
+
+/** The styles stored on our article element, validated. */
+function readStyles(raw: string | null | undefined) {
+  if (!raw) return null;
+  try {
+    return normalizeStyles(JSON.parse(raw));
+  } catch {
+    return null;
+  }
 }
 
 export function parsePlainText(text: string, font: string): PMNode {

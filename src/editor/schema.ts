@@ -148,8 +148,9 @@ highlight.parseDOM = [...(highlight.parseDOM ?? []), { tag: "mark", getAttrs: ()
 export const schema = new Schema({
   nodes: {
     // pageNumbers: print and export add a page number at the bottom of each page.
-    // font: the font of text with no font mark, a key from FONTS.
-    doc: { ...doc, attrs: { pageNumbers: { default: false }, font: { default: DEFAULT_FONT.key } } },
+    // font: the font of text with no font mark, a key from FONTS (Normal's font).
+    // styles: the paragraph styles (see styles.ts), or null for the defaults.
+    doc: { ...doc, attrs: { pageNumbers: { default: false }, font: { default: DEFAULT_FONT.key }, styles: { default: null } } },
     paragraph,
     heading,
     blockquote,

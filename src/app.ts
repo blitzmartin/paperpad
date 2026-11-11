@@ -24,6 +24,7 @@ import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
 import { autosavePrefs, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
+import { openStylesDialog } from "./ui/styles-dialog.ts";
 import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
 
@@ -48,6 +49,7 @@ export interface AppActions extends Record<EditorActionId, Action> {
   pageView: Action;
   infiniteView: Action;
   options: Action;
+  styles: Action;
   shortcuts: Action;
   about: Action;
 }
@@ -406,6 +408,13 @@ export function startApp() {
     view.focus();
   }
 
+  /** Format, Styles: one undoable change to the document's font and styles. */
+  async function editStyles() {
+    const result = await openStylesDialog(view.state.doc.attrs);
+    if (result) view.dispatch(view.state.tr.setDocAttribute("font", result.font).setDocAttribute("styles", result.styles));
+    view.focus();
+  }
+
   // Pages are measured with the document fonts, so measure again once they load.
   void document.fonts?.ready.then(relayoutPages);
 
@@ -493,6 +502,7 @@ export function startApp() {
     pageView: { label: "Page view", run: () => setLayout(true), checked: pageViewOn },
     infiniteView: { label: "Infinite view", run: () => setLayout(false), checked: () => !pageViewOn() },
     options: { label: "Options...", run: () => void openOptions().then(applyOptions) },
+    styles: { label: "Styles...", run: () => void editStyles() },
     shortcuts: { label: "Keyboard shortcuts", keys: ["F1"], run: shortcuts },
     about: { label: "About PaperPad", run: about },
   };
@@ -571,6 +581,8 @@ export function startApp() {
         SEP,
         A.rule,
         A.clearFormatting,
+        SEP,
+        A.styles,
       ],
     },
     { label: "Help", key: "h", items: [A.shortcuts, SEP, A.about] },

@@ -33,10 +33,8 @@ export const FONTS: readonly FontDef[] = [
 export const DEFAULT_FONT = FONTS[0]!;
 
 export const SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
+/** Size of text with no size mark, before styles existed. Normal's size is in styles.ts. */
 export const DEFAULT_SIZE = 12;
-
-/** Heading sizes in points, shared by the stylesheet and the exporters. */
-export const HEADING_SIZES: Record<number, number> = { 1: 24, 2: 18, 3: 14 };
 
 export interface ColorDef {
   key: string;

@@ -81,7 +81,7 @@ function fontSection(initial: string) {
     sample,
     h("p", {
       class: "opt-note",
-      text: "The font is saved with each document, so it looks the same on any computer. Documents you already wrote keep their font.",
+      text: "The font is saved with each document, so it looks the same on any computer. Documents you already wrote keep their font. To change the font, sizes and spacing of headings, quotes and other parts of a document, use Format, Styles.",
     }),
   );
   return { section, value: () => select.value };

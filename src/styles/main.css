@@ -497,6 +497,9 @@ input {
   color: var(--ink);
   box-shadow: var(--well);
 }
+.tb-select:disabled {
+  opacity: 0.55;
+}
 .tb-select.w-style {
   width: 104px;
 }
@@ -624,55 +627,84 @@ input {
    * it does in page view (2cm, the MARGIN in pages.ts) and wraps the same. */
   padding: calc(2cm - 1px);
   outline: none;
-  font-family:
-    Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;
-  font-size: 12pt;
-  line-height: 1.45;
   tab-size: 4;
   caret-color: var(--accent);
   overflow-wrap: break-word;
+  /* The softer text color of the Quote style follows the theme. */
+  --soft: var(--muted);
 }
 .doc ::selection {
   background: var(--selection);
   color: inherit;
 }
 
-.doc p {
-  margin: 0 0 0.5em;
+/* Paragraph styles. The --s-<style>-* variables come from the document's
+ * styles (styles.ts, set by stylesPlugin in setup.ts); the fallbacks are
+ * the defaults, for editors without the plugin. */
+.doc {
+  font-family: var(--s-normal-font, Arial, sans-serif);
+  font-size: var(--s-normal-size, 12pt);
+  font-weight: var(--s-normal-weight, 400);
+  font-style: var(--s-normal-style, normal);
+  line-height: var(--s-normal-lh, 1.45);
+  color: var(--s-normal-color, inherit);
 }
-.doc h1,
-.doc h2,
-.doc h3 {
-  margin: 0.9em 0 0.35em;
-  line-height: 1.2;
-  font-weight: 700;
+.doc p {
+  margin: var(--s-normal-before, 0) 0 var(--s-normal-after, 6pt);
 }
 .doc h1 {
-  font-size: 24pt;
+  font-family: var(--s-h1-font);
+  font-size: var(--s-h1-size, 24pt);
+  font-weight: var(--s-h1-weight, 700);
+  font-style: var(--s-h1-style);
+  line-height: var(--s-h1-lh, 1.2);
+  color: var(--s-h1-color);
+  margin: var(--s-h1-before, 20pt) 0 var(--s-h1-after, 8pt);
 }
 .doc h2 {
-  font-size: 18pt;
+  font-family: var(--s-h2-font);
+  font-size: var(--s-h2-size, 18pt);
+  font-weight: var(--s-h2-weight, 700);
+  font-style: var(--s-h2-style);
+  line-height: var(--s-h2-lh, 1.2);
+  color: var(--s-h2-color);
+  margin: var(--s-h2-before, 16pt) 0 var(--s-h2-after, 6pt);
 }
 .doc h3 {
-  font-size: 14pt;
+  font-family: var(--s-h3-font);
+  font-size: var(--s-h3-size, 14pt);
+  font-weight: var(--s-h3-weight, 700);
+  font-style: var(--s-h3-style);
+  line-height: var(--s-h3-lh, 1.2);
+  color: var(--s-h3-color);
+  margin: var(--s-h3-before, 12pt) 0 var(--s-h3-after, 4pt);
 }
 .doc > :first-child {
   margin-top: 0;
 }
 .doc blockquote {
-  margin: 0 0 0.5em;
+  font-family: var(--s-quote-font);
+  font-size: var(--s-quote-size);
+  font-weight: var(--s-quote-weight);
+  font-style: var(--s-quote-style);
+  line-height: var(--s-quote-lh);
+  color: var(--s-quote-color, var(--soft));
+  margin: var(--s-quote-before, 0) 0 0;
   padding: 0.1em 0 0.1em 1em;
   border-left: 3px solid var(--accent);
-  color: var(--muted);
+}
+.doc blockquote p {
+  margin: 0 0 var(--s-quote-after, 6pt);
 }
 .doc pre {
-  margin: 0 0 0.5em;
+  font-family: var(--s-code-font, "Courier New", monospace);
+  font-size: var(--s-code-size, 10pt);
+  font-weight: var(--s-code-weight);
+  font-style: var(--s-code-style);
+  line-height: var(--s-code-lh, 1.4);
+  color: var(--s-code-color);
+  margin: var(--s-code-before, 0) 0 var(--s-code-after, 6pt);
   padding: 0.6em 0.8em;
-  font:
-    10pt/1.4 "Courier New",
-    Courier,
-    "Liberation Mono",
-    monospace;
   white-space: pre-wrap;
   background: var(--chrome-2);
   border-radius: 3px;
@@ -1584,14 +1616,15 @@ kbd {
     zoom: 1 !important;
   }
 
+  /* Text in the style's color, or black from .page. The soft color is the
+   * gray that saved files and exports use. */
   .doc {
     min-height: 0;
     padding: 0;
-    color: #000;
     caret-color: transparent;
+    --soft: #7a7a7a;
   }
   .doc blockquote {
-    color: #333;
     border-left-color: #999;
   }
   .doc pre {
@@ -1609,5 +1642,93 @@ kbd {
   .doc li {
     orphans: 2;
     widows: 2;
+  }
+}
+
+/* ---- Format > Styles ------------------------------------------------------------ */
+
+.sty-dialog {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "list panel"
+    "preview preview"
+    "note note";
+  gap: 10px 14px;
+  width: min(560px, 100%);
+}
+.sty-list {
+  grid-area: list;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 3px;
+  background: var(--paper);
+  box-shadow: var(--well);
+}
+.sty-tab {
+  padding: 4px 14px 4px 8px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.sty-tab[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--paper);
+}
+.sty-tab:focus-visible {
+  outline: 1px dotted var(--ink);
+  outline-offset: -3px;
+}
+.sty-panel {
+  grid-area: panel;
+}
+.sty-heading {
+  margin: 0;
+  font-size: 1em;
+}
+.sty-checks {
+  display: flex;
+  gap: 16px;
+}
+.sty-resets {
+  display: flex;
+  gap: 8px;
+  padding-top: 6px;
+}
+/* A small sheet of paper showing every style; the current one is marked. */
+.doc.sty-preview {
+  grid-area: preview;
+  min-height: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 14px 18px;
+  zoom: 0.75;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--well);
+  user-select: none;
+}
+.sty-preview .sty-current {
+  outline: 1px dashed var(--accent);
+  outline-offset: 3px;
+}
+.sty-note {
+  grid-area: note;
+}
+@media (max-width: 560px) {
+  .sty-dialog {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "list" "panel" "preview" "note";
+  }
+  .sty-list {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 }

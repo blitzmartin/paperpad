@@ -6,7 +6,8 @@
 // below emit children in schema order.
 
 import type { Mark, Node as PMNode } from "prosemirror-model";
-import { COLORS, DEFAULT_SIZE, docFont, findFont, HEADING_SIZES, HIGHLIGHTS } from "../editor/palette.ts";
+import { COLORS, findFont, HIGHLIGHTS } from "../editor/palette.ts";
+import { exportColor, type ResolvedStyle, resolveStyles } from "../editor/styles.ts";
 
 export interface DocxPart {
   name: string;
@@ -191,21 +192,35 @@ function numberingXml(lists: ListNum[]): string {
   return `${XML_HEAD}<w:numbering ${W_NS}>${abstract}${nums}</w:numbering>`;
 }
 
-/** `fontName` is the document's default font, set on the docDefaults. */
-function stylesXml(fontName: string): string {
-  const font = rFonts(fontName);
-  const heading = (level: number) => {
-    const half = HEADING_SIZES[level]! * 2;
-    return `<w:style w:type="paragraph" w:styleId="Heading${level}"><w:name w:val="heading ${level}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="${level - 1}"/></w:pPr><w:rPr><w:b/><w:sz w:val="${half}"/><w:szCs w:val="${half}"/></w:rPr></w:style>`;
+/** Run properties of a paragraph style. A color of "auto" inherits, like in the editor. */
+function styleRPr(st: ResolvedStyle): string {
+  const hex = exportColor(st.color);
+  const half = st.size * 2;
+  return (
+    `<w:rPr>${rFonts(st.font.name)}${st.bold ? "<w:b/>" : '<w:b w:val="0"/>'}${st.italic ? "<w:i/>" : '<w:i w:val="0"/>'}` +
+    `${hex ? `<w:color w:val="${hex.slice(1)}"/>` : ""}<w:sz w:val="${half}"/><w:szCs w:val="${half}"/></w:rPr>`
+  );
+}
+
+const spacing = (st: ResolvedStyle) =>
+  `<w:spacing w:before="${st.before * 20}" w:after="${st.after * 20}" w:line="${Math.round(st.lineHeight * 240)}" w:lineRule="auto"/>`;
+
+/** Word styles built from the document's paragraph styles (see styles.ts). */
+function stylesXml(doc: PMNode): string {
+  const st = resolveStyles(doc.attrs);
+  const n = st.normal;
+  const heading = (level: 1 | 2 | 3) => {
+    const h = st[`h${level}`];
+    return `<w:style w:type="paragraph" w:styleId="Heading${level}"><w:name w:val="heading ${level}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/>${spacing(h)}<w:outlineLvl w:val="${level - 1}"/></w:pPr>${styleRPr(h)}</w:style>`;
   };
   return (
     `${XML_HEAD}<w:styles ${W_NS}>` +
-    `<w:docDefaults><w:rPrDefault><w:rPr>${font}<w:sz w:val="${DEFAULT_SIZE * 2}"/><w:szCs w:val="${DEFAULT_SIZE * 2}"/><w:lang w:val="en-US"/></w:rPr></w:rPrDefault>` +
-    `<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>` +
-    `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>` +
+    `<w:docDefaults><w:rPrDefault><w:rPr>${rFonts(n.font.name)}<w:sz w:val="${n.size * 2}"/><w:szCs w:val="${n.size * 2}"/><w:lang w:val="en-US"/></w:rPr></w:rPrDefault>` +
+    `<w:pPrDefault><w:pPr>${spacing(n)}</w:pPr></w:pPrDefault></w:docDefaults>` +
+    `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr>${spacing(n)}</w:pPr>${styleRPr(n)}</w:style>` +
     heading(1) + heading(2) + heading(3) +
-    `<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:pBdr><w:left w:val="single" w:sz="12" w:space="8" w:color="999999"/></w:pBdr></w:pPr><w:rPr><w:i/></w:rPr></w:style>` +
-    `<w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0"/></w:pPr><w:rPr>${rFonts("Courier New")}<w:sz w:val="20"/></w:rPr></w:style>` +
+    `<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:pBdr><w:left w:val="single" w:sz="12" w:space="8" w:color="999999"/></w:pBdr>${spacing(st.quote)}</w:pPr>${styleRPr(st.quote)}</w:style>` +
+    `<w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/><w:basedOn w:val="Normal"/><w:pPr>${spacing(st.code)}</w:pPr>${styleRPr(st.code)}</w:style>` +
     `<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style>` +
     `</w:styles>`
   );
@@ -278,7 +293,7 @@ export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
     { name: "docProps/core.xml", content: coreXml(title) },
     { name: "docProps/app.xml", content: APP_XML },
     { name: "word/document.xml", content: document },
-    { name: "word/styles.xml", content: stylesXml(docFont(doc.attrs.font).name) },
+    { name: "word/styles.xml", content: stylesXml(doc) },
     { name: "word/numbering.xml", content: numberingXml(lists) },
     { name: "word/_rels/document.xml.rels", content: docRels },
   ];

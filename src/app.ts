@@ -18,7 +18,7 @@ import { createFindPanel } from "./ui/find-panel.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
-import { initWritingFeel, openOptions } from "./ui/options.ts";
+import { initSpelling, initWritingFeel, openOptions } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
 import { currentTheme, loadZoom, onThemeChange, saveZoom, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
@@ -87,6 +87,7 @@ export function startApp() {
 
   initWritingFeel();
   const view = createView(page, (state) => refresh(state));
+  initSpelling(view.dom);
   const isDirty = () => !view.state.doc.eq(info.saved);
   const stem = () => info.name.replace(/\.[^.]+$/, "") || "Untitled";
 

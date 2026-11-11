@@ -68,9 +68,10 @@ export function newState(doc?: PMNode): EditorState {
 export function createView(mount: HTMLElement, onChange: (state: EditorState) => void): EditorView {
   const view: EditorView = new EditorView(mount, {
     state: newState(),
+    // No spellcheck here: ProseMirror would reset it on every update.
+    // View > Options sets it (see initSpelling in ui/options.ts).
     attributes: {
       class: "doc",
-      spellcheck: "true",
       "aria-label": "Document",
       role: "textbox",
       "aria-multiline": "true",

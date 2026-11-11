@@ -5,6 +5,7 @@ import { TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../src/editor/actions.ts";
 import { deleteRuleBefore, exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
 import { keyLabel, MOD_LABEL } from "../src/ui/keys.ts";
+import { languageName, parseSpellcheck, storedSpellcheck } from "../src/ui/spelling.ts";
 import { parsePrefs, PRESETS, type PresetId, presetOf } from "../src/ui/writing-feel.ts";
 import { schema } from "../src/editor/schema.ts";
 import { newState } from "../src/editor/setup.ts";
@@ -133,6 +134,18 @@ test("writing feel presets are told apart and stored settings are checked", () =
   assert.deepEqual(parsePrefs("not json", true), PRESETS.classic.prefs, "reduced motion");
   const stored = parsePrefs(JSON.stringify({ movement: "smoother", blink: "nope", shape: "underscore", smoothScroll: "yes" }), false);
   assert.deepEqual(stored, { ...PRESETS.smooth.prefs, movement: "smoother", shape: "underscore" });
+});
+
+test("spell checking is on by default and the setting round trips", () => {
+  assert.equal(parseSpellcheck(null), true);
+  assert.equal(parseSpellcheck("garbage"), true);
+  for (const on of [true, false]) assert.equal(parseSpellcheck(storedSpellcheck(on)), on);
+});
+
+test("the checked language is shown by name", () => {
+  assert.equal(languageName("en-US"), "English (United States)");
+  assert.equal(languageName("it"), "Italian");
+  assert.equal(languageName("not a tag"), "not a tag");
 });
 
 test("every DOCX part is allowed by the Rust export command", () => {

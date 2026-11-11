@@ -1,14 +1,17 @@
-// View > Options: the writing feel presets, a preview line and the advanced
-// caret settings. Changes apply live; Cancel puts the old settings back.
+// View > Options: the writing feel presets, a preview line, the advanced
+// caret settings and spell checking. Changes apply live; Cancel puts the old
+// settings back.
 
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
 import { createPreview } from "../editor/setup.ts";
 import { h } from "./dom.ts";
 import { showModal } from "./modal.ts";
 import { loadPref, storePref } from "./theme.ts";
+import { languageName, parseSpellcheck, storedSpellcheck } from "./spelling.ts";
 import { CHOICE_FIELDS, CHOICES, parsePrefs, PRESETS, type PresetId, presetOf } from "./writing-feel.ts";
 
 const PREFS_KEY = "paperpad.caret";
+const SPELL_KEY = "paperpad.spellcheck";
 const ADVANCED_KEY = "paperpad.options.advanced";
 const PREVIEW_TEXT = "Click here and type to try the caret. The quick brown fox jumps over the lazy dog.";
 
@@ -17,9 +20,48 @@ export function initWritingFeel() {
   setCaretPrefs(parsePrefs(loadPref(PREFS_KEY), reducedMotion));
 }
 
+// ---- spelling -----------------------------------------------------------------------
+
+let editor: HTMLElement | null = null;
+
+const applySpellcheck = (on: boolean) => {
+  if (editor) editor.spellcheck = on;
+};
+
+/** Applies the stored spell check setting to the editor. Call once at startup. */
+export function initSpelling(el: HTMLElement) {
+  editor = el;
+  applySpellcheck(parseSpellcheck(loadPref(SPELL_KEY)));
+}
+
+function spellingSection(initial: boolean) {
+  const box = h("input", { type: "checkbox", id: "opt-spell" });
+  box.checked = initial;
+  box.addEventListener("change", () => applySpellcheck(box.checked));
+  const language = languageName(navigator.language);
+  const section = h(
+    "fieldset",
+    { class: "opt-group opt-spelling" },
+    h("legend", { text: "Spelling" }),
+    h("label", { class: "opt-choice" }, box, " Check spelling as you type"),
+    h("p", {
+      class: "opt-note",
+      text:
+        `Spelling is checked in ${language}, the display language of Windows. ` +
+        "Words in other languages are underlined as mistakes. " +
+        "To check another language, change the Windows display language in Settings, Time and language.",
+    }),
+  );
+  return { section, checked: () => box.checked };
+}
+
+// ---- the dialog ---------------------------------------------------------------------
+
 export async function openOptions(): Promise<void> {
   const saved = caretPrefs();
   const draft: CaretPrefs = { ...saved };
+  const spellSaved = parseSpellcheck(loadPref(SPELL_KEY));
+  const spelling = spellingSection(spellSaved);
 
   const radios = new Map<PresetId | "custom", HTMLInputElement>();
   const choice = (id: PresetId | "custom", label: string) => {
@@ -79,9 +121,10 @@ export async function openOptions(): Promise<void> {
   const body = h(
     "div",
     { class: "options" },
-    h("fieldset", { class: "opt-presets" }, h("legend", { text: "Writing feel" }), ...presets, custom),
+    h("fieldset", { class: "opt-group opt-presets" }, h("legend", { text: "Writing feel" }), ...presets, custom),
     well,
     advanced,
+    spelling.section,
   );
 
   sync();
@@ -95,6 +138,11 @@ export async function openOptions(): Promise<void> {
     cancelId: "cancel",
   });
   preview.destroy();
-  if (result === "ok") storePref(PREFS_KEY, JSON.stringify(draft));
-  else setCaretPrefs(saved);
+  if (result === "ok") {
+    storePref(PREFS_KEY, JSON.stringify(draft));
+    storePref(SPELL_KEY, storedSpellcheck(spelling.checked()));
+  } else {
+    setCaretPrefs(saved);
+    applySpellcheck(spellSaved);
+  }
 }

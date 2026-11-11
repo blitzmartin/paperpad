@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../src/editor/actions.ts";
-import { exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
+import { deleteRuleBefore, exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
 import { keyLabel, MOD_LABEL } from "../src/ui/keys.ts";
 import { parsePrefs, PRESETS, type PresetId, presetOf } from "../src/ui/writing-feel.ts";
 import { schema } from "../src/editor/schema.ts";
@@ -36,6 +36,29 @@ test("documents ending in a list or quote are left alone", () => {
   assert.deepEqual(types(newState(N.doc.create(null, [p("a"), list]))), ["paragraph", "bullet_list"]);
   const quote = N.blockquote.create(null, p("q"));
   assert.deepEqual(types(newState(N.doc.create(null, [p("a"), quote]))), ["paragraph", "blockquote"]);
+});
+
+test("backspace after a horizontal line at the end of the document removes it", () => {
+  let state = newState(N.doc.create(null, [p("a"), N.horizontal_rule.create()]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.ok(deleteRuleBefore(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("backspace removes a horizontal line before a paragraph with text and keeps the text", () => {
+  let state = newState(N.doc.create(null, [p("a"), N.horizontal_rule.create(), p("b")]));
+  const start = state.doc.content.size - 2; // start of "b"
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, start)));
+  assert.ok(deleteRuleBefore(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph", "paragraph"]);
+  assert.equal(state.doc.textContent, "ab");
+});
+
+test("backspace is left to the default when no horizontal line comes before", () => {
+  let state = newState(N.doc.create(null, [p("a"), p("b")]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 2)));
+  assert.equal(deleteRuleBefore(state), false);
 });
 
 test("arrow down leaves a code block and adds a paragraph when none follows", () => {

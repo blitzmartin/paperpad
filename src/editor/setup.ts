@@ -52,6 +52,7 @@ function plugins(): Plugin[] {
       "Shift-Tab": liftListItem(listItem),
       ArrowDown: cmd.exitCodeBlock("down"),
       ArrowUp: cmd.exitCodeBlock("up"),
+      Backspace: cmd.deleteRuleBefore,
     }),
     keymap(baseKeymap),
   ];

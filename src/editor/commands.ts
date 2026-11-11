@@ -155,6 +155,22 @@ const insertNode =
 export const insertRule = insertNode(N.horizontal_rule.create());
 export const insertLineBreak = insertNode(N.hard_break.create());
 
+/**
+ * Backspace at the start of a paragraph that follows a rule deletes the rule.
+ * The default would delete an empty paragraph and select the rule instead, and
+ * when the rule ends the document the plugin in setup.ts puts the paragraph
+ * straight back, so the rule could never be removed.
+ */
+export const deleteRuleBefore: Command = (state, dispatch) => {
+  const { $cursor } = state.selection as TextSelection;
+  if (!$cursor || $cursor.parentOffset > 0) return false;
+  const start = $cursor.before();
+  const rule = state.doc.resolve(start).nodeBefore;
+  if (rule?.type !== N.horizontal_rule) return false;
+  dispatch?.(state.tr.delete(start - rule.nodeSize, start).scrollIntoView());
+  return true;
+};
+
 export const insertTab: Command = (state, dispatch) => {
   if (state.selection.$from.parent.type.spec.code) return false;
   dispatch?.(state.tr.insertText("\t").scrollIntoView());

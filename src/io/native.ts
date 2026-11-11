@@ -10,10 +10,9 @@ import { COLORS, docFont, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts"
 import { MAX_INDENT, schema } from "../editor/schema.ts";
 import { exportColor, normalizeStyles, type ResolvedStyle, resolveStyles } from "../editor/styles.ts";
 import { toPlainText } from "../export/text.ts";
+import { VERSION } from "../version.ts";
 
 export type EditableFormat = "html" | "md" | "txt";
-
-const VERSION = "0.1.0";
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

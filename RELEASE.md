@@ -12,12 +12,13 @@ Installers for every platform are built by `.github/workflows/release.yml`. Chec
 
 ## Steps
 
-1. **Bump the version** in all five places:
-   - `package.json`
-   - `src-tauri/tauri.conf.json` (the one the workflow checks)
-   - `src-tauri/Cargo.toml`
-   - the About dialog in `src/app.ts`
-   - `VERSION` in `src/io/native.ts`
+1. **Bump the version** with one command:
+
+   ```sh
+   npm run bump 0.2.0   # or: patch, minor, major
+   ```
+
+   It updates every file that holds the version, and `tests/version.test.ts` fails if any of them disagree. See [The version](#the-version) below.
 2. **Check locally:** `npm run typecheck`, `npm test`, `npx vite build` and `cd src-tauri && cargo test`.
 3. **Commit and push to `main`.** Wait for CI to pass.
 4. **Optional dry run:** Actions, Release, Run workflow. Download the artifacts and try the installers.
@@ -29,6 +30,19 @@ Installers for every platform are built by `.github/workflows/release.yml`. Chec
 7. **Make it final:** edit the release, untick pre-release and tick **Set as the latest release**.
 
 Publishing as a pre-release first keeps an empty release from showing as "Latest" while the installers are still building.
+
+## The version
+
+`npm run bump` (in `scripts/bump.ts`) sets the version in:
+
+- `package.json` and `package-lock.json`
+- `src-tauri/tauri.conf.json` (the one the release workflow checks against the tag)
+- `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock`
+- `src/version.ts`, which the About dialog and saved files read
+
+It takes a version like `0.2.0` or `patch` (0.1.0 to 0.1.1), `minor` (0.1.0 to 0.2.0) or `major` (0.1.0 to 1.0.0). It only accepts plain `x.y.z` versions newer than the current one, because Windows installers reject suffixes like `-beta`. If any file cannot be found or holds a different version, it writes nothing and says which file to fix.
+
+Do not edit the version by hand. To add a file that holds it, add it to `scripts/version-files.ts`.
 
 ## If something goes wrong
 

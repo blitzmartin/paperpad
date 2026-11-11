@@ -70,6 +70,7 @@ npm run dev           # frontend only, in a browser (open and save are disabled)
 npm run typecheck
 npm test              # exporter, palette and editor tests (Node's built-in runner)
 cd src-tauri && cargo test
+npm run bump 0.2.0    # set the version everywhere (or patch, minor, major)
 ```
 
 ## Releasing

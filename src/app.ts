@@ -27,6 +27,7 @@ import { createStatusBar } from "./ui/statusbar.ts";
 import { openStylesDialog } from "./ui/styles-dialog.ts";
 import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
+import { VERSION } from "./version.ts";
 
 /** Every action the menus, the toolbar and the keyboard can trigger. */
 export interface AppActions extends Record<EditorActionId, Action> {
@@ -432,7 +433,7 @@ export function startApp() {
         h(
           "div",
           {},
-          h("p", {}, h("strong", { text: "PaperPad 0.1.0" })),
+          h("p", {}, h("strong", { text: `PaperPad ${VERSION}` })),
           h("p", { text: "A fast, light and local-first word processor." }),
           h("p", { text: "Copyright © 2026 Paper Board Labs." }),
           h("p", { text: "Free for personal and other noncommercial use under the PolyForm Noncommercial License 1.0.0." }),

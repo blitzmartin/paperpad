@@ -10,7 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "bump": "node --experimental-strip-types scripts/bump.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "~2.12.4",

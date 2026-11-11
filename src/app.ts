@@ -7,20 +7,20 @@ import type { Command, EditorState } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction, type EditorActionId } from "./editor/actions.ts";
 import * as cmd from "./editor/commands.ts";
 import { pageViewOn, relayoutPages, setPageView } from "./editor/pages.ts";
-import { blankDoc, createView, newState } from "./editor/setup.ts";
 import { schema } from "./editor/schema.ts";
+import { blankDoc, createView, newState } from "./editor/setup.ts";
 import { toDocxParts } from "./export/docx.ts";
 import { toRtf } from "./export/rtf.ts";
 import { toPlainText } from "./export/text.ts";
 import { backend, inApp, type OpenedDoc, type TextExport } from "./io/backend.ts";
 import { type EditableFormat, parseDocument, serializeDocument, serializeHtml } from "./io/native.ts";
 import type { Action } from "./ui/action.ts";
+import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
 import { h } from "./ui/dom.ts";
 import { createFindPanel } from "./ui/find-panel.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
-import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
 import { autosavePrefs, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
@@ -434,9 +434,9 @@ export function startApp() {
           {},
           h("p", {}, h("strong", { text: "PaperPad 0.1.0" })),
           h("p", { text: "A fast, light and local-first word processor." }),
-          h("p", { text: "Copyright (c) 2026 Paper Board Labs." }),
+          h("p", { text: "Copyright © 2026 Paper Board Labs." }),
           h("p", { text: "Free for personal and other noncommercial use under the PolyForm Noncommercial License 1.0.0." }),
-          h("p", { class: "muted", text: "Your documents never leave your computer." }),
+          h("p", { text: "Your documents never leave your computer." }),
         ),
       ),
     );

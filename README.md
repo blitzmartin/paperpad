@@ -87,4 +87,4 @@ PaperPad is source available under the [PolyForm Noncommercial License 1.0.0](LI
 You may use, study, modify and share it for any noncommercial purpose, including personal use and use by charities, schools and public bodies. Commercial use is not permitted.
 For a commercial license, contact paperboardlabs@gmail.com.
 
-Copyright (c) 2026 Paper Board Labs.
+Copyright © 2026 Paper Board Labs.

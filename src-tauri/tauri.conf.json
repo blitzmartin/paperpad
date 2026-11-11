@@ -60,7 +60,7 @@
     "targets": "all",
     "category": "Productivity",
     "publisher": "Paper Board Labs",
-    "copyright": "Copyright (c) 2026 Paper Board Labs",
+    "copyright": "Copyright © 2026 Paper Board Labs",
     "shortDescription": "A modern retro word processor",
     "longDescription": "PaperPad is a fast, light and local-first word processor with a 90s toolbar, light and dark themes, and export to Markdown, RTF, DOCX and PDF.",
     "icon": [

@@ -6,20 +6,27 @@
 //! - inputs are size-limited and format names are matched against a closed set;
 //! - writes are atomic (temp file + rename) so a crash never truncates a document.
 
+use std::borrow::Cow;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use serde::{Deserialize, Serialize};
+use tauri::ipc::Response;
 use tauri::{State, Window};
 use tauri_plugin_dialog::DialogExt;
 
+use crate::base64;
 use crate::state::AppState;
 use crate::zip;
 
-/// Largest document we read or write (16 MiB of text is a very long book).
-const MAX_DOC_BYTES: usize = 16 * 1024 * 1024;
+/// Largest document we read or write. Text alone rarely passes 1 MiB; the
+/// rest is room for images, which are stored in the document (base64).
+/// MAX_DOC_CHARS in src/editor/image.ts must match.
+const MAX_DOC_BYTES: usize = 32 * 1024 * 1024;
+/// Largest image file that can be added. The webview scales it down first.
+const MAX_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
 
 type CmdResult<T> = Result<T, String>;
 
@@ -115,6 +122,9 @@ pub struct RecentEntry {
 pub struct ZipPart {
     name: String,
     content: String,
+    /// The content is base64: an image under word/media.
+    #[serde(default)]
+    base64: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +176,7 @@ fn read_text(path: &Path) -> CmdResult<String> {
         return Err("Not a regular file".into());
     }
     if meta.len() as usize > MAX_DOC_BYTES {
-        return Err("File is larger than 16 MB".into());
+        return Err("File is larger than 32 MB".into());
     }
     let bytes = fs::read(path).map_err(|e| format!("Cannot read file: {e}"))?;
     let text = String::from_utf8_lossy(&bytes);
@@ -349,16 +359,36 @@ const DOCX_PARTS: &[&str] = &[
     "word/_rels/document.xml.rels",
 ];
 
+/// An image part as src/export/docx.ts names them: word/media/image<n>.png or .jpeg.
+fn is_media_part(name: &str) -> bool {
+    let Some((n, ext)) = name.strip_prefix("word/media/image").and_then(|r| r.split_once('.')) else {
+        return false;
+    };
+    (1..=5).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_digit()) && matches!(ext, "png" | "jpeg")
+}
+
 #[tauri::command]
 pub async fn export_docx(window: Window, parts: Vec<ZipPart>, suggested_name: String) -> CmdResult<Option<String>> {
     let total: usize = parts.iter().map(|p| p.content.len()).sum();
     if total > MAX_DOC_BYTES * 2 {
         return Err("Document too large".into());
     }
-    if parts.iter().any(|p| !DOCX_PARTS.contains(&p.name.as_str())) {
+    // XML parts come from the fixed list; only images are base64 and only under word/media.
+    let allowed = |p: &ZipPart| if p.base64 { is_media_part(&p.name) } else { DOCX_PARTS.contains(&p.name.as_str()) };
+    if !parts.iter().all(allowed) {
         return Err("Unexpected package part".into());
     }
-    let entries: Vec<(&str, &[u8])> = parts.iter().map(|p| (p.name.as_str(), p.content.as_bytes())).collect();
+    let data = parts
+        .iter()
+        .map(|p| {
+            if p.base64 {
+                base64::decode(&p.content).map(Cow::Owned).ok_or("Invalid image data")
+            } else {
+                Ok(Cow::Borrowed(p.content.as_bytes()))
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let entries: Vec<(&str, &[u8])> = parts.iter().zip(&data).map(|(p, d)| (p.name.as_str(), d.as_ref())).collect();
     let bytes = zip::build(&entries)?;
 
     let Some(path) = save_dialog(&window, "Export as Word document", "Word document", &["docx"], &suggested_name) else {
@@ -366,6 +396,46 @@ pub async fn export_docx(window: Window, parts: Vec<ZipPart>, suggested_name: St
     };
     write_atomic(&path, &bytes)?;
     Ok(Some(file_name(&path)))
+}
+
+// ---- images -----------------------------------------------------------------
+
+/// The image types the webview can decode, recognized by their first bytes.
+fn is_image(b: &[u8]) -> bool {
+    b.starts_with(b"\x89PNG\r\n\x1a\n")
+        || b.starts_with(&[0xff, 0xd8, 0xff])
+        || b.starts_with(b"GIF8")
+        || (b.starts_with(b"RIFF") && b.get(8..12) == Some(b"WEBP"))
+        || b.starts_with(b"BM")
+}
+
+/// Shows the native Open dialog for an image and returns its bytes, never
+/// its path. The webview scales and converts it (src/ui/image-import.ts)
+/// and stores it in the document. Empty bytes mean the user cancelled.
+#[tauri::command]
+pub async fn pick_image(window: Window) -> CmdResult<Response> {
+    let picked = window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_title("Add image")
+        .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
+        .blocking_pick_file();
+    let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
+        return Ok(Response::new(Vec::new()));
+    };
+    let meta = fs::metadata(&path).map_err(|e| format!("Cannot read file: {e}"))?;
+    if !meta.is_file() {
+        return Err("Not a regular file".into());
+    }
+    if meta.len() > MAX_IMAGE_BYTES {
+        return Err("The image is larger than 32 MB".into());
+    }
+    let bytes = fs::read(&path).map_err(|e| format!("Cannot read file: {e}"))?;
+    if !is_image(&bytes) {
+        return Err("This is not a PNG, JPEG, GIF, WebP or BMP image".into());
+    }
+    Ok(Response::new(bytes))
 }
 
 /// Updates the native title bar and the unsaved-changes flag.
@@ -438,6 +508,24 @@ mod tests {
         assert!(Format::from_path(Path::new("notes.text")) == Some(Format::Text));
         assert!(Format::from_path(Path::new("notes.rtf")).is_some_and(|f| !f.is_editable()));
         assert!(Format::from_path(Path::new("notes")).is_none());
+    }
+
+    #[test]
+    fn only_numbered_png_and_jpeg_media_parts_are_allowed() {
+        assert!(is_media_part("word/media/image1.png"));
+        assert!(is_media_part("word/media/image12.jpeg"));
+        for bad in ["word/media/image.png", "word/media/image1.svg", "word/media/image1.png/../x", "word/media/imageA.png", "word/media/image123456.png", "word/document.xml"] {
+            assert!(!is_media_part(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn images_are_recognized_by_their_first_bytes() {
+        assert!(is_image(b"\x89PNG\r\n\x1a\nrest"));
+        assert!(is_image(&[0xff, 0xd8, 0xff, 0xe0]));
+        assert!(is_image(b"RIFF\0\0\0\0WEBPVP8 "));
+        assert!(!is_image(b"<svg xmlns="));
+        assert!(!is_image(b"RIFF\0\0\0\0WAVE"));
     }
 
     #[test]

@@ -6,6 +6,7 @@
 // everything else, so a hostile .html file cannot inject script or styles.
 
 import { DOMParser as PMDOMParser, DOMSerializer, type Node as PMNode } from "prosemirror-model";
+import { IMAGE_SIZES } from "../editor/image.ts";
 import { COLORS, docFont, FONTS, HIGHLIGHTS, SIZES } from "../editor/palette.ts";
 import { MAX_INDENT, schema } from "../editor/schema.ts";
 import { exportColor, normalizeStyles, type ResolvedStyle, resolveStyles } from "../editor/styles.ts";
@@ -42,6 +43,15 @@ function standaloneCss(doc: PMNode): string {
     `${a} blockquote{${styleCss(st.quote)};margin:${st.quote.before}pt 0 0;padding-left:1em;border-left:3px solid #999}`,
     `${a} blockquote p{margin:0 0 ${st.quote.after}pt}`,
     `${a} pre{${styleCss(st.code)};margin:${st.code.before}pt 0 ${st.code.after}pt;background:#f2f2f2;padding:.5em}`,
+    `${a} figure.img{margin:${st.normal.before}pt 0 ${st.normal.after}pt;line-height:0;break-inside:avoid}`,
+    `${a} figure.img img{max-width:100%;height:auto;max-height:25.7cm;object-fit:contain;vertical-align:top}`,
+    ...IMAGE_SIZES.filter((z) => z.pct).map((z) => `${a} figure.img-${z.key} img{width:${z.pct}%}`),
+    `${a}{display:flow-root}`,
+    `${a} figure.al-wrap-left,${a} figure.al-wrap-right{max-width:60%;margin-top:.3em;margin-bottom:.3em}`,
+    `${a} figure.al-wrap-left{float:left;margin-right:1.2em}`,
+    `${a} figure.al-wrap-right{float:right;margin-left:1.2em}`,
+    ...IMAGE_SIZES.filter((z) => z.pct).map((z) => `${a} figure.img-${z.key}:is(.al-wrap-left,.al-wrap-right){width:${Math.min(z.pct!, 60)}%}`),
+    `${a} figure.img:not(.img-original):is(.al-wrap-left,.al-wrap-right) img{width:100%}`,
     `${a}>:first-child{margin-top:0}`,
     `.al-center{text-align:center}.al-right{text-align:right}.al-justify{text-align:justify}`,
     ...Array.from({ length: MAX_INDENT }, (_, i) => `.ind-${i + 1}{margin-left:${(i + 1) * 0.5}in}`),

@@ -1,6 +1,8 @@
-// Plain text export. Lists keep a readable bullet or number prefix.
+// Plain text export. Lists keep a readable bullet or number prefix and
+// images become their alternative text in brackets.
 
 import type { Node as PMNode } from "prosemirror-model";
+import { imagePlaceholder } from "../editor/image.ts";
 
 export function toPlainText(doc: PMNode): string {
   const lines: string[] = [];
@@ -22,6 +24,9 @@ export function toPlainText(doc: PMNode): string {
         break;
       case "code_block":
         for (const l of node.textContent.split("\n")) lines.push(prefix + l);
+        break;
+      case "image":
+        lines.push(prefix + imagePlaceholder(node.attrs.alt as string));
         break;
       case "horizontal_rule":
         lines.push("----------------------------------------");

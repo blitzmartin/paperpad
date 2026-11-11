@@ -5,7 +5,7 @@
 import { lift, setBlockType } from "prosemirror-commands";
 import type { Attrs, MarkType, Node as PMNode, NodeType } from "prosemirror-model";
 import { liftListItem, sinkListItem, wrapInList } from "prosemirror-schema-list";
-import { type Command, type EditorState, TextSelection } from "prosemirror-state";
+import { type Command, type EditorState, NodeSelection, TextSelection } from "prosemirror-state";
 import { type Align, MAX_INDENT, schema } from "./schema.ts";
 
 const { nodes: N } = schema;
@@ -76,6 +76,13 @@ function updateTextblocks(state: EditorState, change: (attrs: Attrs) => Attrs | 
 
 export function setAlign(align: Align): Command {
   return (state, dispatch) => {
+    // A selected image aligns as a whole; images cannot be justified.
+    const img = selectedImage(state);
+    if (img) {
+      if (align === "justify") return false;
+      dispatch?.(updateImage(state, { align }));
+      return true;
+    }
     const tr = updateTextblocks(state, (a) => (a.align === align ? null : { align }));
     if (tr) dispatch?.(tr);
     return true;
@@ -155,18 +162,73 @@ const insertNode =
 export const insertRule = insertNode(N.horizontal_rule.create());
 export const insertLineBreak = insertNode(N.hard_break.create());
 
+// ---- images -----------------------------------------------------------------------
+
+/** The image the selection is on, or null. */
+export function selectedImage(state: EditorState): PMNode | null {
+  const sel = state.selection;
+  return sel instanceof NodeSelection && sel.node.type === N.image ? sel.node : null;
+}
+
 /**
- * Backspace at the start of a paragraph that follows a rule deletes the rule.
- * The default would delete an empty paragraph and select the rule instead, and
- * when the rule ends the document the plugin in setup.ts puts the paragraph
- * straight back, so the rule could never be removed.
+ * Adds an image block at the selection and leaves the caret in the paragraph
+ * after it (adding one when the image would end its container). In an empty
+ * paragraph the image goes before it, so typing continues below the image.
+ * attrs must come from imageAttrs or prepareImage.
+ */
+export function insertImage(attrs: Attrs): Command {
+  return (state, dispatch) => {
+    if (dispatch) {
+      const node = N.image.create(attrs);
+      const { $from, empty } = state.selection;
+      const tr = state.tr;
+      if (empty && $from.parent.isTextblock && $from.parent.content.size === 0 && $from.parent.type !== N.code_block) {
+        tr.insert($from.before(), node);
+      } else {
+        tr.replaceSelectionWith(node, false);
+      }
+      let at = -1;
+      tr.doc.descendants((n, pos) => {
+        if (at < 0 && n === node) at = pos;
+        return at < 0;
+      });
+      const after = at + node.nodeSize;
+      if (!tr.doc.nodeAt(after)?.isTextblock) tr.insert(after, N.paragraph.create());
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Changes the size, alignment or text of the selected image. */
+export function setImage(change: { size?: string; alt?: string; align?: string }): Command {
+  return (state, dispatch) => {
+    const img = selectedImage(state);
+    if (!img) return false;
+    dispatch?.(updateImage(state, change));
+    return true;
+  };
+}
+
+/** Changes attributes of the selected image and keeps it selected. */
+function updateImage(state: EditorState, change: Attrs) {
+  const pos = state.selection.from;
+  const tr = state.tr.setNodeMarkup(pos, undefined, { ...selectedImage(state)!.attrs, ...change });
+  return tr.setSelection(NodeSelection.create(tr.doc, pos));
+}
+
+/**
+ * Backspace at the start of a paragraph that follows a rule or an image
+ * deletes it. The default would delete an empty paragraph and select the rule
+ * instead, and when the rule ends the document the plugin in setup.ts puts the
+ * paragraph straight back, so the rule could never be removed.
  */
 export const deleteRuleBefore: Command = (state, dispatch) => {
   const { $cursor } = state.selection as TextSelection;
   if (!$cursor || $cursor.parentOffset > 0) return false;
   const start = $cursor.before();
   const rule = state.doc.resolve(start).nodeBefore;
-  if (rule?.type !== N.horizontal_rule) return false;
+  if (rule?.type !== N.horizontal_rule && rule?.type !== N.image) return false;
   dispatch?.(state.tr.delete(start - rule.nodeSize, start).scrollIntoView());
   return true;
 };
@@ -236,6 +298,8 @@ export function currentBlockStyle(state: EditorState): BlockStyle {
 }
 
 export function currentAlign(state: EditorState): Align {
+  const img = selectedImage(state);
+  if (img) return img.attrs.align as Align;
   return (state.selection.$from.parent.attrs.align as Align) ?? "left";
 }
 

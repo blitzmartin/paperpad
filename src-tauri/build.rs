@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "save_document_as",
     "export_text",
     "export_docx",
+    "pick_image",
     "set_document_state",
     "recovery_write",
     "recovery_read",

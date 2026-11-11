@@ -49,6 +49,11 @@ export const backend = {
     if (!inApp) document.title = `${dirty ? "*" : ""}${title} - PaperPad`;
     return optional(undefined, "set_document_state", { title, dirty });
   },
+  /** Shows the native Open dialog for an image. Returns its bytes, or null when cancelled. */
+  async pickImage(): Promise<ArrayBuffer | null> {
+    const bytes = await call<ArrayBuffer>("pick_image");
+    return bytes.byteLength ? bytes : null;
+  },
   recoveryWrite: (content: string) => optional(undefined, "recovery_write", { content }),
   recoveryRead: () => optional<string | null>(null, "recovery_read"),
   recoveryClear: () => optional(undefined, "recovery_clear"),

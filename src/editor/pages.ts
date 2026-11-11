@@ -158,12 +158,14 @@ class PageLayout {
     this.sheets.className = "pp-sheets";
     this.sheets.setAttribute("aria-hidden", "true");
     view.dom.before(this.sheets);
-    view.dom.addEventListener("compositionend", this.onCompositionEnd);
+    view.dom.addEventListener("compositionend", this.relayout);
+    // An image may only get its final height once it has loaded. Load does not bubble, hence capture.
+    view.dom.addEventListener("load", this.relayout, true);
     live.add(this);
     this.setMode();
   }
 
-  private readonly onCompositionEnd = () => this.schedule();
+  private readonly relayout = () => this.schedule();
 
   /** The element that holds the sheets and the editor (#page in the app). */
   private get page(): HTMLElement {
@@ -186,7 +188,8 @@ class PageLayout {
 
   destroy() {
     cancelAnimationFrame(this.frame);
-    this.view.dom.removeEventListener("compositionend", this.onCompositionEnd);
+    this.view.dom.removeEventListener("compositionend", this.relayout);
+    this.view.dom.removeEventListener("load", this.relayout, true);
     this.sheets.remove();
     live.delete(this);
   }

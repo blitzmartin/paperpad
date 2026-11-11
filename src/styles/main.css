@@ -622,6 +622,8 @@ input {
 }
 
 .doc {
+  /* Keeps an image with text around inside the page when it ends the document. */
+  display: flow-root;
   min-height: 29.7cm;
   /* The print margins, less the page border, so the text sits exactly where
    * it does in page view (2cm, the MARGIN in pages.ts) and wraps the same. */
@@ -730,6 +732,76 @@ input {
 }
 .doc hr.ProseMirror-selectednode {
   outline: 2px solid var(--accent);
+}
+
+/* Images (editor/image.ts). The width and height attributes are the image's
+ * own size: Original size shows it at that size, never wider than the text.
+ * The other sizes are shares of the text width (IMAGE_SIZES). Alignment uses
+ * the al-* classes below. */
+.doc figure.img {
+  margin: var(--s-normal-before, 0) 0 var(--s-normal-after, 6pt);
+  line-height: 0;
+}
+.doc figure.img img {
+  max-width: 100%;
+  height: auto;
+  /* One page at most (CONTENT_H in pages.ts): taller images are scaled to fit. */
+  max-height: 25.7cm;
+  object-fit: contain;
+  vertical-align: top;
+}
+.doc figure.img-small img {
+  width: 25%;
+}
+.doc figure.img-medium img {
+  width: 50%;
+}
+.doc figure.img-large img {
+  width: 75%;
+}
+.doc figure.img-full img {
+  width: 100%;
+}
+/* A quiet frame around the image itself, in place of ProseMirror's light
+ * blue outline around the whole block. */
+/* Text around: the image floats to one side and the text after it flows
+ * beside it. Its size becomes the figure's width, at most WRAP_MAX (60%). */
+.doc figure.img.al-wrap-left,
+.doc figure.img.al-wrap-right {
+  max-width: 60%;
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+.doc figure.img.al-wrap-left {
+  float: left;
+  margin-right: 1.2em;
+}
+.doc figure.img.al-wrap-right {
+  float: right;
+  margin-left: 1.2em;
+}
+.doc figure.img-small:is(.al-wrap-left, .al-wrap-right) {
+  width: 25%;
+}
+.doc figure.img-medium:is(.al-wrap-left, .al-wrap-right) {
+  width: 50%;
+}
+.doc figure.img-large:is(.al-wrap-left, .al-wrap-right),
+.doc figure.img-full:is(.al-wrap-left, .al-wrap-right) {
+  width: 60%;
+}
+.doc figure.img:not(.img-original):is(.al-wrap-left, .al-wrap-right) img {
+  width: 100%;
+}
+.doc figure.img.ProseMirror-selectednode {
+  outline: none;
+}
+.doc figure.img.ProseMirror-selectednode img {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
+}
+.doc figure.img img::selection {
+  background: transparent;
 }
 
 /* Page view (editor/pages.ts): A4 sheets drawn behind the editor, which
@@ -1124,6 +1196,13 @@ input {
     4px 4px 0 rgba(0, 0, 0, 0.28);
 }
 
+/* The point a context menu opens from (openMenuAt in menu.ts). */
+.menu-anchor {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
 .menu {
   z-index: 50;
   min-width: 210px;
@@ -1552,6 +1631,18 @@ kbd {
   padding: 2px 0;
   cursor: default;
 }
+/* Format > Alternative text */
+.alt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 100%);
+}
+.alt-field {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .opt-grid {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1637,6 +1728,12 @@ kbd {
   .doc h2,
   .doc h3 {
     break-after: avoid;
+  }
+  .doc figure.img {
+    break-inside: avoid;
+  }
+  .doc figure.img.ProseMirror-selectednode img {
+    outline: none;
   }
   .doc p,
   .doc li {

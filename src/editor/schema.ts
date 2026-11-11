@@ -1,11 +1,12 @@
 // The document schema. It is the single source of truth for what a
 // PaperPad document can contain, and it doubles as the sanitizer: when HTML
 // is opened or pasted, anything without a parse rule here (scripts, iframes,
-// event handlers, links, images, inline styles) is dropped.
+// event handlers, links, inline styles, remote images) is dropped.
 
 import { Schema, type Attrs, type MarkSpec, type NodeSpec, type ParseRule, type TagParseRule } from "prosemirror-model";
 import { marks as basicMarks, nodes as basicNodes } from "prosemirror-schema-basic";
 import { bulletList, listItem, orderedList } from "prosemirror-schema-list";
+import { DEFAULT_IMAGE_ALIGN, DEFAULT_IMAGE_SIZE, imageAttrs } from "./image.ts";
 import {
   colorFromCss,
   COLORS,
@@ -70,6 +71,44 @@ const heading: NodeSpec = {
 };
 
 const { doc, text, blockquote, horizontal_rule, code_block, hard_break } = basicNodes;
+
+/**
+ * An image block, stored as a data: URL (see image.ts). Saved as
+ * <figure class="img img-<size> al-<align>"><img src alt width height></figure>.
+ * A bare <img> from pasted HTML is accepted too, but only with a PNG or JPEG
+ * data: source: remote and file images are dropped.
+ */
+const image: NodeSpec = {
+  attrs: {
+    src: {},
+    alt: { default: "" },
+    width: {},
+    height: {},
+    size: { default: DEFAULT_IMAGE_SIZE },
+    align: { default: DEFAULT_IMAGE_ALIGN },
+  },
+  group: "block",
+  atom: true,
+  draggable: true,
+  parseDOM: [
+    {
+      tag: "figure.img",
+      getAttrs: (dom) => {
+        const el = dom as HTMLElement;
+        const img = el.querySelector("img");
+        return (img && imageAttrs(img.getAttribute("src"), img.getAttribute("alt"), classValue(el, "img-"), classValue(el, "al-"))) ?? false;
+      },
+    },
+    {
+      tag: "img[src]",
+      getAttrs: (dom) => imageAttrs((dom as HTMLElement).getAttribute("src"), (dom as HTMLElement).getAttribute("alt"), null, null) ?? false,
+    },
+  ],
+  toDOM: (node) => {
+    const { src, alt, width, height, size, align } = node.attrs;
+    return ["figure", { class: `img img-${size} al-${align}` }, ["img", { src, alt, width: String(width), height: String(height) }]];
+  },
+};
 
 // ---- marks -------------------------------------------------------------------
 
@@ -156,6 +195,7 @@ export const schema = new Schema({
     blockquote,
     horizontal_rule,
     code_block,
+    image,
     text,
     hard_break,
     ordered_list: { ...orderedList, content: "list_item+", group: "block" },

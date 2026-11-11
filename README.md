@@ -3,7 +3,9 @@
 A fast, light and local-first word processor with a modern retro 90s look.
 Think WordPad in 1995, with a softer palette, a dark mode and today's file formats.
 
-- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, horizontal line, code block, clear formatting.
+- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, image, horizontal line, code block, clear formatting.
+- **Images** from the toolbar, Format, Add image, Ctrl+Shift+G or the right-click menu, or by pasting or dropping them on the page. PNG, JPEG, GIF, WebP and BMP files work. Each image is saved inside the document, so the file stays one standalone `.html`. Large photos are scaled down to 2000 pixels on the longest side and their metadata, such as the place a photo was taken, is removed. Right-click an image (or use Format) to choose its size (Original size, Small, Medium, Large or Page width), its alignment and its alternative text. With Left, text around or Right, text around the image sits on that side and the text after it flows beside it, as in Word. Word, RTF and PDF exports include the images (RTF places them on their side, without text around); Markdown and plain text show the alternative text in brackets instead, like `[Image: A cat]`.
+- **Right-click menu** in the document with cut, copy, paste and the image tools. Shift+right-click shows the system menu, with the spelling suggestions.
 - **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
 - **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print and the status bar shows which page you are on. Infinite view is one long sheet.
 - **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off and a document opened in it loses them the next time it is saved.
@@ -19,7 +21,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
 - **Autosave** you can turn on in File, Autosave or in View, Options, Saving, where you also choose how soon changes are saved: from 10 seconds to 10 minutes. It is off until you turn it on. It saves PaperPad documents once they have a file, and also when you switch to another window. Text and Markdown files are only saved when you choose Save, because they keep no formatting.
 - **Crash recovery:** with or without autosave, PaperPad keeps a copy of unsaved work in its own data folder every 15 seconds, including new documents that were never saved. If the app or the computer stops unexpectedly, PaperPad offers to restore that copy the next time it starts. The copy is removed once you save or choose not to keep your changes.
-- **Small:** about 85 KB of gzipped JavaScript at startup, installers of a few MB.
+- **Small:** about 100 KB of gzipped JavaScript at startup, installers of a few MB. Documents can be up to 32 MB, which leaves room for many images.
 
 ## Writing feel presets
 

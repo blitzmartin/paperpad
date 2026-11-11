@@ -3,9 +3,10 @@
 
 import { keydownHandler } from "prosemirror-keymap";
 import type { Node as PMNode } from "prosemirror-model";
-import type { Command, EditorState } from "prosemirror-state";
+import { type Command, type EditorState, NodeSelection, TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction, type EditorActionId } from "./editor/actions.ts";
 import * as cmd from "./editor/commands.ts";
+import { cleanAlt, IMAGE_ALIGN_LABELS, IMAGE_ALIGNS, IMAGE_SIZES, imageChars, MAX_ALT, MAX_DOC_CHARS } from "./editor/image.ts";
 import { pageViewOn, relayoutPages, setPageView } from "./editor/pages.ts";
 import { schema } from "./editor/schema.ts";
 import { blankDoc, createView, newState } from "./editor/setup.ts";
@@ -18,8 +19,9 @@ import type { Action } from "./ui/action.ts";
 import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
 import { h } from "./ui/dom.ts";
 import { createFindPanel } from "./ui/find-panel.ts";
+import { pickWithInput, prepareImage } from "./ui/image-import.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
-import { buildMenubar, type MenuEntry, SEP, type TopMenu } from "./ui/menu.ts";
+import { buildMenubar, type MenuEntry, openMenuAt, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
 import { autosavePrefs, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
@@ -51,6 +53,8 @@ export interface AppActions extends Record<EditorActionId, Action> {
   infiniteView: Action;
   options: Action;
   styles: Action;
+  image: Action;
+  altText: Action;
   shortcuts: Action;
   about: Action;
 }
@@ -103,7 +107,11 @@ export function startApp() {
   initWritingFeel();
   // Page view unless the user chose the infinite one.
   setPageView(loadPref(LAYOUT_KEY) !== "infinite");
-  const view = createView(page, (state) => refresh(state));
+  const view = createView(
+    page,
+    (state) => refresh(state),
+    (files, pos) => void addImages(files, pos),
+  );
   view.updateState(newState(info.saved));
   initSpelling(view.dom);
   const isDirty = () => !view.state.doc.eq(info.saved);
@@ -416,6 +424,109 @@ export function startApp() {
     view.focus();
   }
 
+  // ---- images ------------------------------------------------------------------------------
+
+  let addingImage = false;
+
+  /** Adds images at pos (a drop) or at the selection, one after the other. */
+  async function addImages(files: Blob[], pos: number | null = null) {
+    if (addingImage) return;
+    addingImage = true;
+    status.flash(files.length > 1 ? "Adding images..." : "Adding image...", 60000);
+    try {
+      for (const file of files) {
+        const img = await prepareImage(file);
+        // Leave room for the text: Rust refuses to save more than MAX_DOC_CHARS.
+        if (imageChars(view.state.doc) + img.src.length > MAX_DOC_CHARS - 1024 * 1024) {
+          throw new Error("the document would be larger than 32 MB, the most PaperPad can save");
+        }
+        if (pos !== null) {
+          view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(Math.min(pos, view.state.doc.content.size)))));
+          pos = null;
+        }
+        run(cmd.insertImage(img));
+      }
+      if (info.format === "html") status.flash(files.length > 1 ? "Images added" : "Image added", 2000);
+      else status.flash(`${FORMAT_LABEL[info.format]} files keep no images. Use Save As to keep them.`, 8000);
+    } catch (e) {
+      status.flash("Ready", 1);
+      fail("Could not add the image", e);
+    } finally {
+      addingImage = false;
+    }
+  }
+
+  /** Add image: Rust shows the Open dialog and returns the bytes, never the path. */
+  async function addImage() {
+    let file: Blob | null;
+    try {
+      if (inApp) {
+        const bytes = await backend.pickImage();
+        file = bytes && new Blob([bytes]);
+      } else {
+        file = await pickWithInput();
+      }
+    } catch (e) {
+      return fail("Could not open the image", e);
+    }
+    if (file) await addImages([file]);
+    else view.focus();
+  }
+
+  /** The text that describes the selected image, for screen readers and exports. */
+  async function editAltText() {
+    const img = cmd.selectedImage(view.state);
+    if (!img) return;
+    const input = h("input", { type: "text", id: "alt-text", class: "field alt-field", maxlength: MAX_ALT, value: String(img.attrs.alt), spellcheck: "true" });
+    // A form so that Enter confirms. Its submit never navigates (and the CSP forbids it anyway).
+    const form = h(
+      "form",
+      { class: "alt-form" },
+      h("label", { for: input.id, text: "Describe the image for people who cannot see it. Markdown and plain text exports show this text in its place." }),
+      input,
+    );
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      form.closest(".modal")?.querySelector<HTMLButtonElement>(".btn.primary")?.click();
+    });
+    const choice = showModal({
+      title: "Alternative text",
+      body: form,
+      buttons: [
+        { id: "ok", label: "OK", primary: true },
+        { id: "cancel", label: "Cancel" },
+      ],
+      cancelId: "cancel",
+    });
+    input.focus();
+    input.select();
+    if ((await choice) === "ok") run(cmd.setImage({ alt: cleanAlt(input.value) }));
+    else view.focus();
+  }
+
+  /** Right-click in the document. On an image, the image is selected first. */
+  function contextMenu(e: MouseEvent) {
+    const figure = (e.target as Element).closest("figure.img");
+    if (figure) {
+      let at = -1;
+      view.state.doc.descendants((n, pos) => {
+        if (at < 0 && n.type === schema.nodes.image && view.nodeDOM(pos) === figure) at = pos;
+        return at < 0;
+      });
+      if (at >= 0) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, at)));
+    }
+    const entries: MenuEntry[] = [A.cut, A.copy, A.paste, A.pastePlain, SEP, A.image];
+    if (cmd.selectedImage(view.state)) {
+      entries.push(
+        SEP,
+        { kind: "sub", label: "Image size", items: imageSizeItems },
+        { kind: "sub", label: "Alignment", items: imageAlignItems },
+        A.altText,
+      );
+    }
+    openMenuAt(e.clientX, e.clientY, entries);
+  }
+
   // Pages are measured with the document fonts, so measure again once they load.
   void document.fonts?.ready.then(relayoutPages);
 
@@ -462,6 +573,8 @@ export function startApp() {
       [`Up / Down`, "Leave a code block from its first or last line"],
       [`${m}+Shift+V`, "Paste as plain text"],
       [`${m}+\\`, "Clear formatting"],
+      [`${m}+Shift+G`, "Add image"],
+      [`Shift+right-click`, "System menu, with spelling suggestions"],
       [`${m}+Shift+D`, "Toggle dark mode"],
       [`${m}+ + / - / 0`, "Zoom in, out, reset"],
     ];
@@ -504,6 +617,8 @@ export function startApp() {
     infiniteView: { label: "Infinite view", run: () => setLayout(false), checked: () => !pageViewOn() },
     options: { label: "Options...", run: () => void openOptions().then(applyOptions) },
     styles: { label: "Styles...", run: () => void editStyles() },
+    image: { label: "Add image...", keys: ["Shift-Mod-g"], run: () => void addImage() },
+    altText: { label: "Alternative text...", run: () => void editAltText(), enabled: () => !!cmd.selectedImage(view.state) },
     shortcuts: { label: "Keyboard shortcuts", keys: ["F1"], run: shortcuts },
     about: { label: "About PaperPad", run: about },
   };
@@ -527,6 +642,22 @@ export function startApp() {
       keys: b.key ? [b.key] : undefined,
       run: () => run(cmd.setBlockStyle(b.style)),
       checked: () => cmd.currentBlockStyle(view.state) === b.style,
+    }));
+
+  const imageSizeItems = (): MenuEntry[] =>
+    IMAGE_SIZES.map((size) => ({
+      label: size.label,
+      run: () => run(cmd.setImage({ size: size.key })),
+      checked: () => cmd.selectedImage(view.state)?.attrs.size === size.key,
+      enabled: () => !!cmd.selectedImage(view.state),
+    }));
+
+  const imageAlignItems = (): MenuEntry[] =>
+    IMAGE_ALIGNS.map((align) => ({
+      label: IMAGE_ALIGN_LABELS[align],
+      run: () => run(cmd.setImage({ align })),
+      checked: () => cmd.selectedImage(view.state)?.attrs.align === align,
+      enabled: () => !!cmd.selectedImage(view.state),
     }));
 
   const themeItems = (): MenuEntry[] =>
@@ -581,6 +712,11 @@ export function startApp() {
         A.outdent,
         SEP,
         A.rule,
+        A.image,
+        { kind: "sub", label: "Image size", items: imageSizeItems },
+        { kind: "sub", label: "Image alignment", items: imageAlignItems },
+        A.altText,
+        SEP,
         A.clearFormatting,
         SEP,
         A.styles,
@@ -615,18 +751,25 @@ export function startApp() {
     if (handleKey(view, e)) e.preventDefault();
   });
 
-  // Keep the webview from navigating to dropped files and hide the browser
-  // context menu outside text areas.
+  // Keep the webview from navigating to dropped files. Images dropped on the
+  // document are added by the editor (createView); other files are not opened.
   for (const type of ["dragover", "drop"] as const) {
     window.addEventListener(type, (e) => {
-      if (e.dataTransfer?.types.includes("Files")) {
-        e.preventDefault();
-        if (type === "drop") status.flash("Use File, Open to open a document");
-      }
+      if (!e.dataTransfer?.types.includes("Files")) return;
+      e.preventDefault();
+      const images = Array.from(e.dataTransfer.items).some((i) => i.kind === "file" && i.type.startsWith("image/"));
+      if (type === "drop" && !images) status.flash("Use File, Open to open a document");
     });
   }
+  // PaperPad's own menu in the document. Shift+right-click keeps the system
+  // menu, which has the spelling suggestions. Fields keep the system menu too.
   document.addEventListener("contextmenu", (e) => {
-    if (!(e.target as Element).closest(".ProseMirror, input, textarea")) e.preventDefault();
+    const target = e.target as Element;
+    if (target.closest("input, textarea")) return;
+    const inDoc = !!target.closest(".ProseMirror");
+    if (inDoc && e.shiftKey) return;
+    e.preventDefault();
+    if (inDoc && !isModalOpen()) contextMenu(e);
   });
 
   if (!inApp) status.flash("Browser preview: open and save need the desktop app", 10000);

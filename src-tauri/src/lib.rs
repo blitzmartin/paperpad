@@ -1,3 +1,4 @@
+mod base64;
 mod commands;
 mod state;
 mod zip;
@@ -76,6 +77,7 @@ pub fn run() {
             commands::save_document_as,
             commands::export_text,
             commands::export_docx,
+            commands::pick_image,
             commands::set_document_state,
             commands::recovery_write,
             commands::recovery_read,

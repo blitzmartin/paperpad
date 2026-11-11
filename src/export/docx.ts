@@ -6,17 +6,24 @@
 // below emit children in schema order.
 
 import type { Mark, Node as PMNode } from "prosemirror-model";
+import { displaySize, EXPORT_COLUMN, isWrapped, parseDataUrl } from "../editor/image.ts";
 import { COLORS, findFont, HIGHLIGHTS } from "../editor/palette.ts";
 import { exportColor, type ResolvedStyle, resolveStyles } from "../editor/styles.ts";
 
 export interface DocxPart {
   name: string;
   content: string;
+  /** The content is base64 (an image); Rust decodes it before zipping. */
+  base64?: boolean;
 }
 
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 const INDENT_TWIPS = 720;
+const A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main";
+const PIC_NS = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+const WP_NS = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+const EMU_PER_PX = 9525;
 
 /** Escapes text for XML and drops characters XML 1.0 does not allow. */
 export function xmlEscape(s: string): string {
@@ -124,15 +131,83 @@ interface ListNum {
   ilvl: number;
 }
 
-function documentBody(doc: PMNode): { body: string; lists: ListNum[] } {
+// ---- images -------------------------------------------------------------------
+
+interface MediaFile {
+  name: string;
+  ext: "png" | "jpeg";
+  rid: string;
+  base64: string;
+}
+
+/** The images of a document. The same image used twice is stored once. */
+class Media {
+  readonly files: MediaFile[] = [];
+  private readonly bySrc = new Map<string, MediaFile>();
+  private drawings = 0;
+
+  /**
+   * A picture run (DrawingML), sized like in the editor. Inline, or for text
+   * around it an anchor on one side with square wrapping.
+   */
+  drawing(node: PMNode): string {
+    const data = parseDataUrl(node.attrs.src);
+    if (!data) return "";
+    let file = this.bySrc.get(node.attrs.src as string);
+    if (!file) {
+      const n = this.files.length + 1;
+      const ext = data.mime === "image/png" ? "png" : "jpeg";
+      file = { name: `image${n}.${ext}`, ext, rid: `rIdImg${n}`, base64: data.base64 };
+      this.files.push(file);
+      this.bySrc.set(node.attrs.src as string, file);
+    }
+    const id = ++this.drawings;
+    const { w, h } = displaySize(node.attrs as { width: number; height: number; size: string; align: string }, EXPORT_COLUMN.w, EXPORT_COLUMN.h);
+    const cx = Math.round(w * EMU_PER_PX);
+    const cy = Math.round(h * EMU_PER_PX);
+    const pr = `id="${id}" name="Picture ${id}" descr="${xmlEscape(node.attrs.alt as string)}"`;
+    const extent = `<wp:extent cx="${cx}" cy="${cy}"/>`;
+    const side = node.attrs.align === "wrap-right" ? "right" : "left";
+    // 0.3 cm between the image and the text beside it.
+    const open = isWrapped(node.attrs.align)
+      ? `<wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${id}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="0">` +
+        `<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:align>${side}</wp:align></wp:positionH>` +
+        `<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>${extent}<wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapSquare wrapText="bothSides"/>`
+      : `<wp:inline distT="0" distB="0" distL="0" distR="0">${extent}`;
+    const close = isWrapped(node.attrs.align) ? "</wp:anchor>" : "</wp:inline>";
+    return (
+      `<w:r><w:drawing>${open}<wp:docPr ${pr}/>` +
+      `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="${A_NS}" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+      `<a:graphic xmlns:a="${A_NS}"><a:graphicData uri="${PIC_NS}"><pic:pic xmlns:pic="${PIC_NS}">` +
+      `<pic:nvPicPr><pic:cNvPr ${pr}/><pic:cNvPicPr/></pic:nvPicPr>` +
+      `<pic:blipFill><a:blip r:embed="${file.rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+      `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+      `</pic:pic></a:graphicData></a:graphic>${close}</w:drawing></w:r>`
+    );
+  }
+}
+
+function documentBody(doc: PMNode): { body: string; lists: ListNum[]; media: Media } {
   const out: string[] = [];
   const lists: ListNum[] = [];
+  const media = new Media();
+  // An image with text around is anchored to the next paragraph, whose text then flows beside it.
+  let anchors = "";
+  const takeAnchors = () => {
+    const a = anchors;
+    anchors = "";
+    return a;
+  };
+  /** Before anything that is not a paragraph, waiting anchors get one of their own. */
+  const flush = () => {
+    if (anchors) out.push(paragraph(takeAnchors(), {}));
+  };
 
   const walk = (node: PMNode, quote: number, list?: { numId: number; ilvl: number }) => {
     const name = node.type.name;
     if (name === "paragraph" || name === "heading") {
       out.push(
-        paragraph(inline(node), {
+        paragraph(takeAnchors() + inline(node), {
           style: name === "heading" ? `Heading${node.attrs.level}` : quote ? "Quote" : undefined,
           numId: list?.numId,
           ilvl: list?.ilvl,
@@ -141,8 +216,16 @@ function documentBody(doc: PMNode): { body: string; lists: ListNum[] } {
         }),
       );
     } else if (name === "code_block") {
+      flush();
       out.push(paragraph(textRuns(node.textContent, ""), { style: "Code", indent: quote }));
+    } else if (name === "image" && isWrapped(node.attrs.align)) {
+      anchors += media.drawing(node);
+    } else if (name === "image") {
+      flush();
+      const indent = quote + (list ? list.ilvl + 1 : 0);
+      out.push(paragraph(media.drawing(node), { indent, align: node.attrs.align as string }));
     } else if (name === "horizontal_rule") {
+      flush();
       out.push(paragraph("", { border: true }));
     } else if (name === "blockquote") {
       node.forEach((c) => walk(c, quote + 1, list));
@@ -155,7 +238,7 @@ function documentBody(doc: PMNode): { body: string; lists: ListNum[] } {
       node.forEach((item) => {
         item.forEach((child, _o, i) => {
           if (child.isTextblock && i === 0) walk(child, quote, { numId, ilvl });
-          else if (child.isTextblock) out.push(paragraph(inline(child), { style: "ListParagraph", indent: ilvl + 1 }));
+          else if (child.isTextblock) out.push(paragraph(takeAnchors() + inline(child), { style: "ListParagraph", indent: ilvl + 1 }));
           else walk(child, quote, { numId, ilvl });
         });
       });
@@ -165,8 +248,9 @@ function documentBody(doc: PMNode): { body: string; lists: ListNum[] } {
   };
 
   doc.forEach((n) => walk(n, 0));
+  flush();
   if (!out.length) out.push("<w:p/>");
-  return { body: out.join("\n"), lists };
+  return { body: out.join("\n"), lists, media };
 }
 
 // ---- static parts ---------------------------------------------------------------
@@ -271,22 +355,17 @@ const FOOTER_XML =
   `<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>`;
 
 export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
-  const { body, lists } = documentBody(doc);
+  const { body, lists, media } = documentBody(doc);
   const pageNumbers = !!doc.attrs.pageNumbers;
-  const document = `${XML_HEAD}<w:document ${W_NS}><w:body>${body}${sectPr(pageNumbers)}</w:body></w:document>`;
+  const document = `${XML_HEAD}<w:document ${W_NS} xmlns:wp="${WP_NS}"><w:body>${body}${sectPr(pageNumbers)}</w:body></w:document>`;
   // With page numbers, the footer part must also be declared in the content types and the relationships.
-  const contentTypes = pageNumbers
-    ? CONTENT_TYPES.replace(
-        "</Types>",
-        '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>',
-      )
-    : CONTENT_TYPES;
-  const docRels = pageNumbers
-    ? DOC_RELS.replace(
-        "</Relationships>",
-        '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>',
-      )
-    : DOC_RELS;
+  // So do the images: one Default per image type, one relationship per image.
+  const types = [...new Set(media.files.map((f) => f.ext))].map((ext) => `<Default Extension="${ext}" ContentType="image/${ext}"/>`);
+  if (pageNumbers) types.push('<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>');
+  const contentTypes = CONTENT_TYPES.replace("</Types>", `${types.join("")}</Types>`);
+  const rels = media.files.map((f) => `<Relationship Id="${f.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${f.name}"/>`);
+  if (pageNumbers) rels.push('<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>');
+  const docRels = DOC_RELS.replace("</Relationships>", `${rels.join("")}</Relationships>`);
   const parts: DocxPart[] = [
     { name: "[Content_Types].xml", content: contentTypes },
     { name: "_rels/.rels", content: ROOT_RELS },
@@ -298,5 +377,6 @@ export function toDocxParts(doc: PMNode, title: string): DocxPart[] {
     { name: "word/_rels/document.xml.rels", content: docRels },
   ];
   if (pageNumbers) parts.push({ name: "word/footer1.xml", content: FOOTER_XML });
+  for (const f of media.files) parts.push({ name: `word/media/${f.name}`, content: f.base64, base64: true });
   return parts;
 }

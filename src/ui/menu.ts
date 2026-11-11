@@ -138,6 +138,17 @@ export async function openMenu(
   return menu;
 }
 
+/** A context menu at a point in the window, such as where the mouse was right-clicked. */
+export function openMenuAt(x: number, y: number, entries: MenuEntry[]) {
+  closeAllMenus();
+  // An invisible anchor at the point; the menu opens below it like any other.
+  const anchor = h("div", { class: "menu-anchor" });
+  anchor.style.left = `${x}px`;
+  anchor.style.top = `${y}px`;
+  document.body.append(anchor);
+  void openMenu(anchor, entries, { onClose: () => anchor.remove() });
+}
+
 export function buildMenubar(bar: HTMLElement, menus: TopMenu[]) {
   const buttons: HTMLButtonElement[] = [];
   let current = -1;

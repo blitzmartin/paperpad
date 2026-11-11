@@ -12,6 +12,7 @@
     "allow-save-document-as",
     "allow-export-text",
     "allow-export-docx",
+    "allow-pick-image",
     "allow-set-document-state",
     "allow-recovery-write",
     "allow-recovery-read",

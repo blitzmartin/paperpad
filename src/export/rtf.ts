@@ -5,6 +5,7 @@
 // Spec: Microsoft "Rich Text Format (RTF) Specification, version 1.9.1".
 
 import type { Mark, Node as PMNode } from "prosemirror-model";
+import { base64ToBytes, displaySize, EXPORT_COLUMN, parseDataUrl } from "../editor/image.ts";
 import { COLORS, docFont, FONTS, HIGHLIGHTS } from "../editor/palette.ts";
 import { colorKey, type ResolvedStyle, resolveStyles, type StyleId } from "../editor/styles.ts";
 
@@ -80,7 +81,26 @@ function inline(block: PMNode, base: ResolvedStyle): string {
   return out;
 }
 
-const ALIGN: Record<string, string> = { left: "\\ql", center: "\\qc", right: "\\qr", justify: "\\qj" };
+const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
+
+/** An embedded PNG or JPEG picture, as hex in lines of 128 characters. */
+function picture(node: PMNode): string {
+  const data = parseDataUrl(node.attrs.src);
+  if (!data) return "";
+  const bytes = base64ToBytes(data.base64);
+  const lines: string[] = [];
+  for (let i = 0; i < bytes.length; i += 64) {
+    let line = "";
+    for (const b of bytes.subarray(i, i + 64)) line += HEX[b];
+    lines.push(line);
+  }
+  const { w, h } = displaySize(node.attrs as { width: number; height: number; size: string }, EXPORT_COLUMN.w, EXPORT_COLUMN.h);
+  const blip = data.mime === "image/png" ? "\\pngblip" : "\\jpegblip";
+  return `{\\pict${blip}\\picw${node.attrs.width}\\pich${node.attrs.height}\\picwgoal${Math.round(w * 15)}\\pichgoal${Math.round(h * 15)}\n${lines.join("\n")}}`;
+}
+
+// RTF has no simple text wrapping: images with text around are aligned to their side.
+const ALIGN: Record<string, string> = { left: "\\ql", center: "\\qc", right: "\\qr", justify: "\\qj", "wrap-left": "\\ql", "wrap-right": "\\qr" };
 
 /** A paragraph with the spacing of its style (points become twips). */
 function para(st: ResolvedStyle, controls: string, body: string): string {
@@ -103,6 +123,8 @@ function walk(node: PMNode, indent: number, out: string[], quote = false) {
     out.push(para(st, `${ALIGN[node.attrs.align as string] ?? ""}\\li${li}${extra}`, inline(node, st)));
   } else if (name === "code_block") {
     out.push(para(styles.code, `\\li${indent * TWIPS_PER_INDENT}`, `{${runControls([], styles.code)} ${rtfEscape(node.textContent)}}`));
+  } else if (name === "image") {
+    out.push(`\\pard\\plain${ALIGN[node.attrs.align as string] ?? ""}\\li${indent * TWIPS_PER_INDENT} ${picture(node)}\\par\n`);
   } else if (name === "horizontal_rule") {
     out.push(`\\pard\\plain\\brdrb\\brdrs\\brdrw10\\brsp20 \\par\n`);
   } else if (name === "blockquote") {

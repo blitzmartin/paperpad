@@ -39,6 +39,8 @@ export const ICONS = {
   rule: `${lines(4, [4.5, 14], 12)}<rect class="f" x="2" y="8.6" width="16" height="2.5" rx=".6"/>`,
   // A page with text and a "#" in its footer: the usual sign for page numbers.
   pageNumbers: `<path class="p k" d="M4.25 1.75h7.5l4 4v12.5H4.25z"/><path class="k" d="M11.75 1.75v4h4"/>${lines(6.25, [4.25], 4)}${lines(6.25, [7.5], 7.5)}<path class="kn" d="M8.9 11.75l-.8 5M11.9 11.75l-.8 5M7.25 13.4h5.5M6.9 15.4h5.5"/>`,
+  // A framed picture: sun and green hills.
+  image: `<path class="p k" d="M2.75 3.75h14.5v12.5H2.75z"/><circle class="y k" cx="7" cy="7.75" r="1.6"/><path class="g k" d="M2.75 16.25l5-5.5 3 3.25 2.5-2.5 4 4.75z"/>`,
   code: `<path class="p k" d="M2.75 4.25h14.5v11.5H2.75z"/><path class="ka" d="M7.25 7.75 4.75 10l2.5 2.25M12.75 7.75l2.5 2.25-2.5 2.25"/>`,
   clear: `<path class="r k" d="M3.25 12.25l6.5-6.5 5 5-4 4H6.25z"/><path class="p k" d="M3.25 12.25l3-3 5 5-1 1H6.25z"/><rect class="f" x="11" y="16" width="6" height="1.5"/>`,
   sun: `<circle class="y k" cx="10" cy="10" r="3.5"/><path class="k" d="M10 1.75v2.5M10 15.75v2.5M1.75 10h2.5M15.75 10h2.5M4.2 4.2l1.75 1.75M14.05 14.05l1.75 1.75M4.2 15.8l1.75-1.75M14.05 5.95 15.8 4.2"/>`,

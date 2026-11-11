@@ -212,7 +212,7 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
     sep(),
     group(tool(A.bullets, "bullets"), tool(A.numbers, "numbers"), tool(A.outdent, "outdent"), tool(A.indent, "indent")),
     sep(),
-    group(tool(A.rule, "rule"), tool(A.codeBlock, "code"), tool(A.clearFormatting, "clear")),
+    group(tool(A.image, "image"), tool(A.rule, "rule"), tool(A.codeBlock, "code"), tool(A.clearFormatting, "clear")),
   );
 
   root.append(standard, format);

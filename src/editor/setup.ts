@@ -100,9 +100,30 @@ export function newState(doc?: PMNode): EditorState {
   return lock ? state.apply(lock.setMeta("addToHistory", false)) : state;
 }
 
-export function createView(mount: HTMLElement, onChange: (state: EditorState) => void): EditorView {
+/** Image files on the clipboard or in a drop. */
+const imageFiles = (data: DataTransfer | null): File[] => (data ? Array.from(data.files).filter((f) => f.type.startsWith("image/")) : []);
+
+/**
+ * onImageFiles receives pasted or dropped image files, with the drop
+ * position (null for a paste, which goes at the selection).
+ */
+export function createView(mount: HTMLElement, onChange: (state: EditorState) => void, onImageFiles?: (files: File[], pos: number | null) => void): EditorView {
   const view: EditorView = new EditorView(mount, {
     state: newState(),
+    handlePaste(_view, event) {
+      const files = imageFiles(event.clipboardData);
+      // Only an image on its own: copies from Word or Excel also carry a
+      // picture of the copied text, and those paste as text.
+      if (!onImageFiles || !files.length || event.clipboardData!.getData("text/plain").trim()) return false;
+      onImageFiles(files, null);
+      return true;
+    },
+    handleDrop(view, event, _slice, moved) {
+      const files = imageFiles(event.dataTransfer);
+      if (moved || !onImageFiles || !files.length) return false;
+      onImageFiles(files, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null);
+      return true;
+    },
     // No spellcheck here: ProseMirror would reset it on every update.
     // View > Options sets it (see initSpelling in ui/options.ts).
     // The document's font and paragraph styles are CSS variables (stylesPlugin).

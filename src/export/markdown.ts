@@ -1,11 +1,13 @@
 // Markdown import and export (CommonMark plus ~~strikethrough~~).
 //
 // Markdown has no notion of fonts, sizes, colors, highlight, underline,
-// alignment or indent, so those are dropped on export. Raw HTML is never
-// parsed on import, and links and images are reduced to their text.
+// alignment or indent, so those are dropped on export. Images become their
+// alternative text in brackets. Raw HTML is never parsed on import, and
+// links and images are reduced to their text.
 
 import { defaultMarkdownParser, defaultMarkdownSerializer, MarkdownParser, MarkdownSerializer } from "prosemirror-markdown";
 import type { Node as PMNode } from "prosemirror-model";
+import { imagePlaceholder } from "../editor/image.ts";
 import { schema } from "../editor/schema.ts";
 
 const plain = { open: "", close: "", mixable: true, expelEnclosingWhitespace: true };
@@ -21,6 +23,11 @@ const serializer = new MarkdownSerializer(
     },
     bullet_list(state, node) {
       state.renderList(node, "  ", () => "- ");
+    },
+    // Markdown cannot hold an embedded image, so its alternative text stands in.
+    image(state, node) {
+      state.write(state.esc(imagePlaceholder(node.attrs.alt as string)));
+      state.closeBlock(node);
     },
   },
   {

@@ -14,16 +14,17 @@ import { toDocxParts } from "./export/docx.ts";
 import { toRtf } from "./export/rtf.ts";
 import { toPlainText } from "./export/text.ts";
 import { backend, inApp, type OpenedDoc, type TextExport } from "./io/backend.ts";
-import { type EditableFormat, parseDocument, serializeDocument, serializeHtml } from "./io/native.ts";
+import { type EditableFormat, newDocId, parseDocument, serializeDocument, serializeHtml } from "./io/native.ts";
 import type { Action } from "./ui/action.ts";
 import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
 import { h } from "./ui/dom.ts";
 import { createFindPanel } from "./ui/find-panel.ts";
+import { pickVersion } from "./ui/history-dialog.ts";
 import { pickWithInput, prepareImage } from "./ui/image-import.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, openMenuAt, SEP, type TopMenu } from "./ui/menu.ts";
 import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
-import { autosavePrefs, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
+import { autosavePrefs, historyKeepCount, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
 import { openStylesDialog } from "./ui/styles-dialog.ts";
@@ -38,6 +39,7 @@ export interface AppActions extends Record<EditorActionId, Action> {
   save: Action;
   saveAs: Action;
   autosave: Action;
+  history: Action;
   print: Action;
   cut: Action;
   copy: Action;
@@ -63,6 +65,8 @@ interface DocInfo {
   token: number | null;
   name: string;
   format: EditableFormat;
+  /** The document ID of a PaperPad file (kept in the file, not in the editor). None until its first save. */
+  docId?: string | null;
   /** The document as last saved; "dirty" means the editor differs from it. */
   saved: PMNode;
 }
@@ -157,18 +161,21 @@ export function startApp() {
    * Writes the document and records it as saved. False when cancelled or failed.
    * An autosave reports in the status bar only, never with a dialog.
    */
-  async function persist(write: (doc: PMNode) => Promise<FileInfo | null>, auto = false): Promise<boolean> {
+  async function persist(write: (doc: PMNode) => Promise<(FileInfo & { warning?: string | null }) | null>, auto = false): Promise<boolean> {
     const doc = view.state.doc;
     saving = true;
     try {
-      const file = await write(doc);
-      if (!file) return false;
+      const result = await write(doc);
+      if (!result) return false;
+      const { warning, ...file } = result;
       // The file may have been replaced (Save As) while this was written.
       if (auto && file.token !== info.token) return false;
       setInfo({ ...file, saved: doc });
       // Typing during the write keeps the document dirty: recovery still covers it.
       if (!isDirty()) void backend.recoveryClear();
-      status.flash(auto ? "Autosaved" : `Saved ${info.name}`, auto ? 2000 : 4000);
+      // The file is saved either way; a version history problem is only a warning.
+      if (warning) status.flash(warning, 10000);
+      else status.flash(auto ? "Autosaved" : `Saved ${info.name}`, auto ? 2000 : 4000);
       return true;
     } catch (e) {
       if (auto) status.flash(`Autosave failed: ${e instanceof Error ? e.message : String(e)}`, 10000);
@@ -180,16 +187,103 @@ export function startApp() {
     }
   }
 
-  const saveAs = () => persist((doc) => backend.saveAs(serializeHtml(doc, stem()), stem()));
+  /** Save As makes a new file, so it is a new document with a new ID. */
+  const saveAs = () => {
+    const docId = newDocId();
+    return persist(async (doc) => {
+      const saved = await backend.saveAs(serializeHtml(doc, stem(), docId), stem(), historyKeepCount());
+      return saved && { ...saved, docId };
+    });
+  };
+
+  /** The file changed on disk since it was opened (another computer, through a cloud app). */
+  function askConflict(name: string) {
+    return showModal({
+      title: "PaperPad",
+      body: `${name} was changed by another program or computer since you opened it. Keep both saves your version as a separate file next to it and leaves the other version as it is. Replace it overwrites the other version, which stays in the version history.`,
+      buttons: [
+        { id: "copy", label: "Keep both", primary: true },
+        { id: "overwrite", label: "Replace it" },
+        { id: "cancel", label: "Cancel" },
+      ],
+      cancelId: "cancel",
+    });
+  }
 
   function save(auto = false): Promise<boolean> {
     const file: FileInfo = info;
     if (file.token === null) return saveAs();
     const token = file.token;
+    // A PaperPad file gets its document ID the first time it is saved.
+    const docId = file.format === "html" ? (file.docId ?? newDocId()) : null;
     return persist(async (doc) => {
-      await backend.save(token, await serializeDocument(doc, file.format, stem()));
-      return file;
+      const content = await serializeDocument(doc, file.format, stem(), docId);
+      let out = await backend.save(token, content, auto, historyKeepCount(), false);
+      if (out.conflict) {
+        // An autosave never decides this on its own.
+        if (auto) throw new Error("the file was changed by another program or computer. Choose Save to decide what to do");
+        const choice = await askConflict(file.name);
+        if (choice === "cancel") return null;
+        if (choice === "copy") return { ...(await backend.saveConflictCopy(token, content)), docId };
+        out = await backend.save(token, content, false, historyKeepCount(), true);
+      }
+      return { ...file, docId, warning: out.warning };
     }, auto);
+  }
+
+  /**
+   * When the window comes back, a file that is open and unchanged here may have
+   * been updated by another computer through the cloud app. Reload it. A file
+   * with unsaved changes is left alone: Save asks what to do.
+   */
+  async function reloadIfChanged() {
+    const token = info.token;
+    if (token === null || saving || isModalOpen() || isDirty()) return;
+    try {
+      if (!(await backend.changedOnDisk(token))) return;
+      const fresh = await backend.reload(token);
+      const doc = await parseDocument(fresh.content, info.format, preferredFont());
+      // Typing or another file may have come in while this was read.
+      if (info.token !== token || isDirty()) return;
+      loadDoc(doc, { token, name: info.name, format: info.format, docId: fresh.docId });
+      status.flash(`${info.name} was changed elsewhere and has been reloaded`, 6000);
+    } catch {
+      // Not worth a dialog: Save checks again.
+    }
+  }
+  window.addEventListener("focus", () => void reloadIfChanged());
+
+  // ---- version history --------------------------------------------------------------
+
+  /** Lists the saved versions and loads the chosen one as an undoable change. */
+  async function showHistory() {
+    const token = info.token;
+    if (token === null) {
+      status.flash("Save this document once to start its version history", 6000);
+      return;
+    }
+    try {
+      const versions = await backend.listVersions(token);
+      if (!versions.length) {
+        status.flash("This document has no earlier versions yet", 6000);
+        return;
+      }
+      const id = await pickVersion(info.name, versions);
+      if (!id) return view.focus();
+      const doc = await parseDocument(await backend.readVersion(token, id), info.format, preferredFont());
+      const current = view.state.doc;
+      const tr = view.state.tr.replaceWith(0, current.content.size, doc.content);
+      // The font, styles and page numbers belong to the document too.
+      for (const [name, value] of Object.entries(doc.attrs)) {
+        const next = name === "pageNumbers" && !pageViewOn() ? false : value;
+        if (next !== current.attrs[name]) tr.setDocAttribute(name, next);
+      }
+      view.dispatch(tr);
+      view.focus();
+      status.flash("Version restored. Save to keep it, or undo to go back", 8000);
+    } catch (e) {
+      fail("Could not restore the version", e);
+    }
   }
 
   // ---- autosave ---------------------------------------------------------------------
@@ -275,7 +369,7 @@ export function startApp() {
     } catch (e) {
       return fail(`Could not read ${d.name}`, e);
     }
-    loadDoc(doc, { token: d.token, name: d.name, format: d.format });
+    loadDoc(doc, { token: d.token, name: d.name, format: d.format, docId: d.docId });
     void backend.recoveryClear();
     if (d.format !== "html") {
       const auto = autosavePrefs().on ? " It is not autosaved." : "";
@@ -604,6 +698,7 @@ export function startApp() {
     save: { label: "Save", keys: ["Mod-s"], run: () => void save() },
     saveAs: { label: "Save as...", keys: ["Shift-Mod-s"], run: () => void saveAs() },
     autosave: { label: "Autosave", run: toggleAutosave, checked: () => autosavePrefs().on },
+    history: { label: "Version history...", run: () => void showHistory(), enabled: () => info.token !== null },
     print: { label: "Print...", keys: ["Mod-p"], run: print },
     // The webview handles these keys itself; the shortcut is only shown.
     cut: { label: "Cut", hint: "Mod-x", run: () => void clipboard("cut") },
@@ -677,7 +772,7 @@ export function startApp() {
     {
       label: "File",
       key: "f",
-      items: [A.newDocument, A.open, { kind: "sub", label: "Open recent", items: recentItems }, SEP, A.save, A.saveAs, A.autosave, { kind: "sub", label: "Export", items: exportItems }, SEP, A.print],
+      items: [A.newDocument, A.open, { kind: "sub", label: "Open recent", items: recentItems }, SEP, A.save, A.saveAs, A.autosave, A.history, { kind: "sub", label: "Export", items: exportItems }, SEP, A.print],
     },
     {
       label: "Edit",

@@ -74,13 +74,23 @@ function standaloneCss(doc: PMNode): string {
   return rules.join("\n");
 }
 
-export function serializeHtml(doc: PMNode, title: string): string {
+/** A lowercase UUID, as `crypto.randomUUID()` makes. Rust accepts the same shape (archive.rs). */
+const DOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export const newDocId = (): string => crypto.randomUUID();
+
+/**
+ * `id` is the document ID: it names the document across renames, moves and
+ * computers, and keys its version history. It is not part of the editor state.
+ */
+export function serializeHtml(doc: PMNode, title: string, id?: string | null): string {
   const fragment = DOMSerializer.fromSchema(schema).serializeFragment(doc.content);
   const holder = document.createElement("div");
   holder.appendChild(fragment);
   const pageNumbers = !!doc.attrs.pageNumbers;
   const font = docFont(doc.attrs.font);
   const styles = doc.attrs.styles ? ` data-styles="${escapeHtml(JSON.stringify(doc.attrs.styles))}"` : "";
+  const docId = id && DOC_ID.test(id) ? ` data-id="${id}"` : "";
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -91,7 +101,7 @@ export function serializeHtml(doc: PMNode, title: string): string {
     `<style>\n${standaloneCss(doc)}\n</style>`,
     "</head>",
     "<body>",
-    `<article class="paperpad" data-font="${font.key}"${styles}${pageNumbers ? ' data-page-numbers="on"' : ""}>${holder.innerHTML}</article>`,
+    `<article class="paperpad" data-font="${font.key}"${styles}${pageNumbers ? ' data-page-numbers="on"' : ""}${docId}>${holder.innerHTML}</article>`,
     "</body>",
     "</html>",
     "",
@@ -151,10 +161,10 @@ export async function parseDocument(content: string, format: EditableFormat, fon
   }
 }
 
-export async function serializeDocument(doc: PMNode, format: EditableFormat, title: string): Promise<string> {
+export async function serializeDocument(doc: PMNode, format: EditableFormat, title: string, id?: string | null): Promise<string> {
   switch (format) {
     case "html":
-      return serializeHtml(doc, title);
+      return serializeHtml(doc, title, id);
     case "md":
       return (await markdown()).toMarkdown(doc);
     case "txt":

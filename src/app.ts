@@ -30,6 +30,7 @@ import { createStatusBar } from "./ui/statusbar.ts";
 import { openStylesDialog } from "./ui/styles-dialog.ts";
 import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
+import { offerWelcome } from "./ui/welcome.ts";
 import { VERSION } from "./version.ts";
 
 /** Every action the menus, the toolbar and the keyboard can trigger. */
@@ -874,5 +875,11 @@ export function startApp() {
   if (!inApp) status.flash("Browser preview: open and save need the desktop app", 10000);
   setInfo(info);
   view.focus();
-  void offerRecovery();
+  // A document left by a crash comes first, then the one-time welcome.
+  void (async () => {
+    await offerRecovery().catch(() => {});
+    const welcome = await offerWelcome();
+    if (welcome === "chosen") status.flash("PaperPad folder set. Open and Save as start there", 6000);
+    else if (welcome === "later") status.flash("You can choose a PaperPad folder later in View, Options, Files", 8000);
+  })();
 }

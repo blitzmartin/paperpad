@@ -1,7 +1,8 @@
-// View > Options, in four tabs: Writing feel (caret presets, a preview line
+// View > Options, in five tabs: Writing feel (caret presets, a preview line
 // and the advanced caret settings), Text (default font and spelling), Saving
-// (autosave, version history and a note on crash recovery) and Appearance (color theme and
-// light or dark mode). Changes apply live, except autosave which applies on
+// (autosave and a note on crash recovery), Files (the PaperPad folder and
+// version history) and Appearance (color theme and light or dark mode). All
+// panels share one height, the tallest, so keep each tab short. Changes apply live, except autosave which applies on
 // OK; Cancel puts the old settings back.
 
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
@@ -164,8 +165,7 @@ function folderSection(initial: string | null) {
       class: "opt-note",
       text:
         "Open and Save as start in this folder. To use PaperPad on more than one computer, choose a folder that your cloud app " +
-        "(Dropbox, OneDrive, iCloud Drive, Nextcloud, Syncthing and others) keeps in sync. PaperPad itself never connects to the internet. " +
-        "This choice applies at once and Cancel does not undo it.",
+        "(Dropbox, OneDrive, Nextcloud, Syncthing and others) keeps in sync. This choice applies at once.",
     }),
   );
 }
@@ -189,9 +189,8 @@ function historySection(initial: number) {
     h("p", {
       class: "opt-note",
       text:
-        "Every time you save, PaperPad also keeps a copy of the document in its own data folder, so you can go back with File, Version history. " +
-        "It keeps the newest versions of each document and deletes the older ones. " +
-        "Autosave adds a version at most every 5 minutes. The copies stay on this computer and are not placed in your document folders.",
+        "Every save also keeps a copy on this computer, outside your document folders, so you can go back with File, Version history. " +
+        "The oldest copies are deleted first. Autosave adds one at most every 5 minutes.",
     }),
   );
   return { section, value: () => Number(select.value) };
@@ -245,11 +244,12 @@ function appearanceSection() {
 
 // ---- tabs ---------------------------------------------------------------------------
 
-type TabId = "feel" | "text" | "saving" | "appearance";
+type TabId = "feel" | "text" | "saving" | "files" | "appearance";
 const TABS: [TabId, string][] = [
   ["feel", "Writing feel"],
   ["text", "Text"],
   ["saving", "Saving"],
+  ["files", "Files"],
   ["appearance", "Appearance"],
 ];
 
@@ -378,7 +378,8 @@ export async function openOptions(): Promise<OptionsResult> {
       advanced,
     ),
     text: h("div", { class: "options" }, font.section, spelling.section),
-    saving: h("div", { class: "options" }, ...(folder ? [folder] : []), saving.section, history.section, recoverySection()),
+    saving: h("div", { class: "options" }, saving.section, recoverySection()),
+    files: h("div", { class: "options" }, ...(folder ? [folder] : []), history.section),
     appearance: appearanceSection(),
   });
 

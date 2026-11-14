@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clear-documents-folder"
+description = "Enables the clear_documents_folder command without any pre-configured scope."
+commands.allow = ["clear_documents_folder"]
+
+[[permission]]
+identifier = "deny-clear-documents-folder"
+description = "Denies the clear_documents_folder command without any pre-configured scope."
+commands.deny = ["clear_documents_folder"]

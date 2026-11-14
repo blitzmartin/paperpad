@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-external-change"
+description = "Enables the check_external_change command without any pre-configured scope."
+commands.allow = ["check_external_change"]
+
+[[permission]]
+identifier = "deny-check-external-change"
+description = "Denies the check_external_change command without any pre-configured scope."
+commands.deny = ["check_external_change"]

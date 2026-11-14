@@ -1,3 +1,4 @@
+mod archive;
 mod base64;
 mod commands;
 mod state;
@@ -36,6 +37,7 @@ pub fn run() {
             if let Ok(dir) = app.path().app_data_dir() {
                 state.set_data_dir(dir);
                 state.load_recent();
+                state.load_documents_dir();
             }
             Ok(())
         })
@@ -75,6 +77,14 @@ pub fn run() {
             commands::list_recent,
             commands::save_document,
             commands::save_document_as,
+            commands::get_documents_folder,
+            commands::choose_documents_folder,
+            commands::clear_documents_folder,
+            commands::check_external_change,
+            commands::reload_document,
+            commands::save_conflict_copy,
+            commands::list_versions,
+            commands::read_version,
             commands::export_text,
             commands::export_docx,
             commands::pick_image,

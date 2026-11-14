@@ -17,8 +17,9 @@ use tauri::ipc::Response;
 use tauri::{State, Window};
 use tauri_plugin_dialog::DialogExt;
 
+use crate::archive;
 use crate::base64;
-use crate::state::AppState;
+use crate::state::{fingerprint, AppState, Fingerprint};
 use crate::zip;
 
 /// Largest document we read or write. Text alone rarely passes 1 MiB; the
@@ -99,6 +100,8 @@ pub struct OpenedDoc {
     name: String,
     format: &'static str,
     content: String,
+    /// The document ID of a PaperPad file, if it has one.
+    doc_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -107,6 +110,8 @@ pub struct SavedDoc {
     token: u64,
     name: String,
     format: &'static str,
+    /// Set when the version archive could not be written.
+    warning: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -170,7 +175,8 @@ fn ensure_extension(path: PathBuf, allowed: &[&str]) -> PathBuf {
     }
 }
 
-fn read_text(path: &Path) -> CmdResult<String> {
+/// Reads a document as text, with the fingerprint of the bytes on disk.
+fn read_file(path: &Path) -> CmdResult<(String, Fingerprint)> {
     let meta = fs::metadata(path).map_err(|e| format!("Cannot read file: {e}"))?;
     if !meta.is_file() {
         return Err("Not a regular file".into());
@@ -180,12 +186,29 @@ fn read_text(path: &Path) -> CmdResult<String> {
     }
     let bytes = fs::read(path).map_err(|e| format!("Cannot read file: {e}"))?;
     let text = String::from_utf8_lossy(&bytes);
-    Ok(text.strip_prefix('\u{feff}').unwrap_or(&text).to_string())
+    Ok((text.strip_prefix('\u{feff}').unwrap_or(&text).to_string(), fingerprint(&bytes)))
+}
+
+fn read_text(path: &Path) -> CmdResult<String> {
+    read_file(path).map(|(text, _)| text)
+}
+
+/// True when the file on disk is not what PaperPad last read or wrote: another
+/// program, or another computer through a cloud app, changed it since.
+fn changed_on_disk(state: &AppState, token: u64, path: &Path) -> bool {
+    let Some(known) = state.known(token) else { return false };
+    if !path.is_file() {
+        return false;
+    }
+    match fs::metadata(path) {
+        Ok(m) if m.len() as usize <= MAX_DOC_BYTES * 2 => fs::read(path).map_or(true, |b| fingerprint(&b) != known),
+        _ => true,
+    }
 }
 
 /// Writes through a temporary sibling file, flushes it to disk, then renames
 /// it over the destination. Rename is atomic on the same volume.
-fn write_atomic(path: &Path, bytes: &[u8]) -> CmdResult<()> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> CmdResult<()> {
     if bytes.len() > MAX_DOC_BYTES * 2 {
         return Err("Document too large".into());
     }
@@ -217,33 +240,34 @@ fn opened(state: &AppState, path: PathBuf) -> CmdResult<OpenedDoc> {
     let format = Format::from_path(&path)
         .filter(|f| f.is_editable())
         .ok_or("Unsupported file type")?;
-    let content = read_text(&path)?;
+    let (content, print) = read_file(&path)?;
     state.touch_recent(&path);
-    Ok(OpenedDoc {
-        name: file_name(&path),
-        format: format.name(),
-        content,
-        token: state.issue_token(path),
-    })
+    let doc_id = if format == Format::Html { archive::extract_doc_id(&content) } else { None };
+    let name = file_name(&path);
+    let token = state.issue_token(path);
+    state.set_known(token, print);
+    state.set_doc_id(token, doc_id.clone());
+    Ok(OpenedDoc { name, format: format.name(), content, doc_id, token })
 }
 
 /// Shows a native Save dialog for one file type. Returns None when the user cancels.
-fn save_dialog(window: &Window, title: &str, label: &str, extensions: &[&str], suggested: &str) -> Option<PathBuf> {
-    let path = window
+fn save_dialog(window: &Window, title: &str, label: &str, extensions: &[&str], suggested: &str, start: Option<PathBuf>) -> Option<PathBuf> {
+    let mut dialog = window
         .dialog()
         .file()
         .set_parent(window)
         .set_title(title)
         .set_file_name(format!("{}.{}", clean_stem(suggested), extensions[0]))
-        .add_filter(label, extensions)
-        .blocking_save_file()?
-        .into_path()
-        .ok()?;
+        .add_filter(label, extensions);
+    if let Some(dir) = start {
+        dialog = dialog.set_directory(dir);
+    }
+    let path = dialog.blocking_save_file()?.into_path().ok()?;
     Some(ensure_extension(path, extensions))
 }
 
-fn save_dialog_for(window: &Window, format: Format, suggested: &str) -> Option<PathBuf> {
-    save_dialog(window, "Save as", format.label(), format.extensions(), suggested)
+fn save_dialog_for(window: &Window, format: Format, suggested: &str, start: Option<PathBuf>) -> Option<PathBuf> {
+    save_dialog(window, "Save as", format.label(), format.extensions(), suggested, start)
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +281,9 @@ pub async fn open_document(window: Window, state: State<'_, AppState>) -> CmdRes
     let mut dialog = window.dialog().file().set_parent(&window).set_title("Open").add_filter("All supported", &all);
     for f in Format::EDITABLE {
         dialog = dialog.add_filter(f.label(), f.extensions());
+    }
+    if let Some(dir) = state.documents_dir() {
+        dialog = dialog.set_directory(dir);
     }
     let picked = dialog.blocking_pick_file();
     let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
@@ -293,18 +320,131 @@ pub fn list_recent(state: State<'_, AppState>) -> Vec<RecentEntry> {
         .collect()
 }
 
+/// Writes a copy of what is about to be saved to the version archive. A
+/// problem here never stops the save: it comes back as a warning to show.
+fn archive_copy(state: &AppState, doc: archive::Doc, bytes: &[u8], auto: bool, keep: u32) -> Result<(), String> {
+    let data_dir = state.data_dir().ok_or("No app data folder")?;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    archive::snapshot(&data_dir, doc, bytes, auto, keep as usize, now).map(|_| ())
+}
+
+/// The warning shown when the archive failed but the save itself went through.
+fn archive_warning(result: Result<(), String>) -> Option<String> {
+    result.err().map(|e| format!("Saved, but the version history could not be written: {e}"))
+}
+
+/// The ID in a PaperPad file's content. Other formats have none.
+fn doc_id_of(format: Format, content: &str) -> Option<String> {
+    if format == Format::Html {
+        archive::extract_doc_id(content)
+    } else {
+        None
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveOutcome {
+    /// The file on disk changed since PaperPad read or wrote it, so nothing was written.
+    conflict: bool,
+    /// Set when the version archive could not be written.
+    warning: Option<String>,
+}
+
 /// Saves in place to a file the user opened or saved earlier in this session.
+/// The version archive is written first, then the file. `auto` marks an
+/// autosave, which is archived less often.
+///
+/// If the file on disk is no longer what PaperPad last read or wrote (another
+/// computer saved it through a cloud app, say), nothing is written and the
+/// outcome says so. With `force` the file is replaced anyway, but its content
+/// is kept in the version archive first.
 #[tauri::command]
-pub async fn save_document(token: u64, content: String, state: State<'_, AppState>) -> CmdResult<()> {
+pub async fn save_document(
+    token: u64,
+    content: String,
+    auto: bool,
+    keep: u32,
+    force: bool,
+    state: State<'_, AppState>,
+) -> CmdResult<SaveOutcome> {
     check_size(&content)?;
     let path = state.path_for(token).ok_or("Unknown document")?;
     let format = Format::from_path(&path).ok_or("Unsupported file type")?;
     if !format.is_editable() {
         return Err("This format can only be exported".into());
     }
+    let id = doc_id_of(format, &content);
+    let doc = archive::Doc { path: &path, id: id.as_deref() };
+    if changed_on_disk(&state, token, &path) {
+        if !force {
+            return Ok(SaveOutcome { conflict: true, warning: None });
+        }
+        // Keep what is about to be replaced. If that fails, do not replace it.
+        let theirs = fs::read(&path).map_err(|e| format!("Cannot read file: {e}"))?;
+        let old_id = state.doc_id(token);
+        let old_doc = archive::Doc { path: &path, id: old_id.as_deref().or(doc.id) };
+        archive_copy(&state, old_doc, &theirs, false, keep).map_err(|e| format!("Could not keep the other version first: {e}"))?;
+    }
+    let warning = archive_warning(archive_copy(&state, doc, content.as_bytes(), auto, keep));
+    write_atomic(&path, content.as_bytes())?;
+    state.set_known(token, fingerprint(content.as_bytes()));
+    state.set_doc_id(token, id);
+    state.touch_recent(&path);
+    Ok(SaveOutcome { conflict: false, warning })
+}
+
+/// True when the open file was changed on disk by someone else.
+#[tauri::command]
+pub fn check_external_change(token: u64, state: State<'_, AppState>) -> bool {
+    state.path_for(token).is_some_and(|path| changed_on_disk(&state, token, &path))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReloadedDoc {
+    content: String,
+    doc_id: Option<String>,
+}
+
+/// Reads the open file again, after it changed on disk. The token stays the same.
+#[tauri::command]
+pub async fn reload_document(token: u64, state: State<'_, AppState>) -> CmdResult<ReloadedDoc> {
+    let path = state.path_for(token).ok_or("Unknown document")?;
+    let format = Format::from_path(&path).filter(|f| f.is_editable()).ok_or("Unsupported file type")?;
+    let (content, print) = read_file(&path)?;
+    let doc_id = doc_id_of(format, &content);
+    state.set_known(token, print);
+    state.set_doc_id(token, doc_id.clone());
+    Ok(ReloadedDoc { content, doc_id })
+}
+
+/// Saves the user's version as a new file next to the original, named
+/// `<name> (conflict <date>).<ext>`, and leaves the original untouched. The
+/// returned token is the new file's: the editor continues with it.
+#[tauri::command]
+pub async fn save_conflict_copy(token: u64, content: String, state: State<'_, AppState>) -> CmdResult<SavedDoc> {
+    check_size(&content)?;
+    let original = state.path_for(token).ok_or("Unknown document")?;
+    let format = Format::from_path(&original).filter(|f| f.is_editable()).ok_or("Unsupported file type")?;
+    let dir = original.parent().ok_or("Invalid destination")?;
+    let stem = original.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Untitled".into());
+    let ext = original.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_else(|| format.extensions()[0].into());
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let label = archive::stamp(now);
+    let path = (1..100)
+        .map(|n| if n == 1 { format!("{stem} (conflict {label}).{ext}") } else { format!("{stem} (conflict {label} {n}).{ext}") })
+        .map(|name| dir.join(name))
+        .find(|p| !p.exists())
+        .ok_or("Too many conflict copies")?;
     write_atomic(&path, content.as_bytes())?;
     state.touch_recent(&path);
-    Ok(())
+    let doc_id = doc_id_of(format, &content);
+    let name = file_name(&path);
+    let new_token = state.issue_token(path);
+    state.set_known(new_token, fingerprint(content.as_bytes()));
+    state.set_doc_id(new_token, doc_id);
+    Ok(SavedDoc { name, format: format.name(), token: new_token, warning: None })
 }
 
 /// Save As always produces the native format (HTML).
@@ -313,19 +453,94 @@ pub async fn save_document_as(
     window: Window,
     content: String,
     suggested_name: String,
+    keep: u32,
     state: State<'_, AppState>,
 ) -> CmdResult<Option<SavedDoc>> {
     check_size(&content)?;
-    let Some(path) = save_dialog_for(&window, Format::Html, &suggested_name) else {
+    let Some(path) = save_dialog_for(&window, Format::Html, &suggested_name, state.documents_dir()) else {
         return Ok(None);
     };
+    let id = doc_id_of(Format::Html, &content);
+    let warning = archive_warning(archive_copy(&state, archive::Doc { path: &path, id: id.as_deref() }, content.as_bytes(), false, keep));
     write_atomic(&path, content.as_bytes())?;
     state.touch_recent(&path);
-    Ok(Some(SavedDoc {
-        name: file_name(&path),
-        format: Format::Html.name(),
-        token: state.issue_token(path),
-    }))
+    let name = file_name(&path);
+    let token = state.issue_token(path);
+    state.set_known(token, fingerprint(content.as_bytes()));
+    state.set_doc_id(token, id);
+    Ok(Some(SavedDoc { name, format: Format::Html.name(), token, warning }))
+}
+
+// ---- documents folder -------------------------------------------------------
+
+/// Only the folder's own name leaves Rust, never its path.
+fn folder_label(dir: &Path) -> String {
+    dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| dir.to_string_lossy().into_owned())
+}
+
+/// The name of the documents folder, or None when none is chosen or it is gone.
+#[tauri::command]
+pub fn get_documents_folder(state: State<'_, AppState>) -> Option<String> {
+    state.documents_dir().map(|d| folder_label(&d))
+}
+
+/// Shows the native folder picker and remembers the choice. Returns the new
+/// folder's name, or None when the user cancels.
+#[tauri::command]
+pub async fn choose_documents_folder(window: Window, state: State<'_, AppState>) -> CmdResult<Option<String>> {
+    let mut dialog = window.dialog().file().set_parent(&window).set_title("Choose your PaperPad folder");
+    if let Some(dir) = state.documents_dir() {
+        dialog = dialog.set_directory(dir);
+    }
+    let Some(dir) = dialog.blocking_pick_folder().and_then(|p| p.into_path().ok()) else {
+        return Ok(None);
+    };
+    if !dir.is_dir() {
+        return Err("That is not a folder".into());
+    }
+    let label = folder_label(&dir);
+    state.set_documents_dir(Some(dir));
+    Ok(Some(label))
+}
+
+#[tauri::command]
+pub fn clear_documents_folder(state: State<'_, AppState>) {
+    state.set_documents_dir(None);
+}
+
+// ---- version history --------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionEntry {
+    id: String,
+    /// Milliseconds since 1970, for the webview to show in local time.
+    time_ms: u64,
+    bytes: u64,
+}
+
+/// The saved versions of an open document, newest first.
+#[tauri::command]
+pub fn list_versions(token: u64, state: State<'_, AppState>) -> CmdResult<Vec<VersionEntry>> {
+    let path = state.path_for(token).ok_or("Unknown document")?;
+    let data_dir = state.data_dir().ok_or("No app data folder")?;
+    let id = state.doc_id(token);
+    Ok(archive::list(&data_dir, archive::Doc { path: &path, id: id.as_deref() })
+        .into_iter()
+        .map(|v| VersionEntry { id: v.id, time_ms: v.time * 1000, bytes: v.bytes })
+        .collect())
+}
+
+/// The content of one saved version. The webview decides what to do with it;
+/// nothing is written until the user saves.
+#[tauri::command]
+pub async fn read_version(token: u64, id: String, state: State<'_, AppState>) -> CmdResult<String> {
+    let path = state.path_for(token).ok_or("Unknown document")?;
+    let data_dir = state.data_dir().ok_or("No app data folder")?;
+    let doc_id = state.doc_id(token);
+    let bytes = archive::read(&data_dir, archive::Doc { path: &path, id: doc_id.as_deref() }, &id).ok_or("That version no longer exists")?;
+    let text = String::from_utf8_lossy(&bytes);
+    Ok(text.strip_prefix('\u{feff}').unwrap_or(&text).to_string())
 }
 
 /// Exports text-based formats. Returns the chosen file name, or None on cancel.
@@ -338,7 +553,7 @@ pub async fn export_text(
 ) -> CmdResult<Option<String>> {
     check_size(&content)?;
     let format = Format::from_name(&format).ok_or("Unknown export format")?;
-    let Some(path) = save_dialog_for(&window, format, &suggested_name) else {
+    let Some(path) = save_dialog_for(&window, format, &suggested_name, None) else {
         return Ok(None);
     };
     write_atomic(&path, content.as_bytes())?;
@@ -391,7 +606,7 @@ pub async fn export_docx(window: Window, parts: Vec<ZipPart>, suggested_name: St
     let entries: Vec<(&str, &[u8])> = parts.iter().zip(&data).map(|(p, d)| (p.name.as_str(), d.as_ref())).collect();
     let bytes = zip::build(&entries)?;
 
-    let Some(path) = save_dialog(&window, "Export as Word document", "Word document", &["docx"], &suggested_name) else {
+    let Some(path) = save_dialog(&window, "Export as Word document", "Word document", &["docx"], &suggested_name, None) else {
         return Ok(None);
     };
     write_atomic(&path, &bytes)?;
@@ -526,6 +741,30 @@ mod tests {
         assert!(is_image(b"RIFF\0\0\0\0WEBPVP8 "));
         assert!(!is_image(b"<svg xmlns="));
         assert!(!is_image(b"RIFF\0\0\0\0WAVE"));
+    }
+
+    #[test]
+    fn a_file_changed_behind_our_back_is_noticed() {
+        let dir = std::env::temp_dir().join(format!("paperpad-changed-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.html");
+        fs::write(&path, b"mine").unwrap();
+        let state = AppState::default();
+        let token = state.issue_token(path.clone());
+        // Nothing known about the file yet: nothing to compare.
+        assert!(!changed_on_disk(&state, token, &path));
+        state.set_known(token, fingerprint(b"mine"));
+        assert!(!changed_on_disk(&state, token, &path));
+        // Another computer saved it through the cloud app.
+        fs::write(&path, b"theirs").unwrap();
+        assert!(changed_on_disk(&state, token, &path));
+        // Once we have read or written it again, it is the known file.
+        state.set_known(token, fingerprint(b"theirs"));
+        assert!(!changed_on_disk(&state, token, &path));
+        // A file that is gone is not a conflict: saving just writes it again.
+        fs::remove_file(&path).unwrap();
+        assert!(!changed_on_disk(&state, token, &path));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

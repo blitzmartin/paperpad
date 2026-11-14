@@ -64,7 +64,12 @@ export const backend = {
     call<SaveOutcome>("save_document", { token, content, auto, keep, force }),
   /** True when another program or computer changed the open file. */
   changedOnDisk: (token: number) => optional<boolean>(false, "check_external_change", { token }),
-  reload: (token: number) => call<{ content: string; docId: string | null }>("reload_document", { token }),
+  /**
+   * Reads the open file again. `previous` (the document as last saved here) is
+   * kept in the version archive first, since an autosave may not have archived it.
+   */
+  reload: (token: number, previous: string, keep: number) =>
+    call<{ content: string; docId: string | null }>("reload_document", { token, previous, keep }),
   /** Saves next to the original as "<name> (conflict <date>)" and returns the new file. */
   saveConflictCopy: (token: number, content: string) => call<SavedDoc>("save_conflict_copy", { token, content }),
   saveAs: (content: string, suggestedName: string, keep: number) =>

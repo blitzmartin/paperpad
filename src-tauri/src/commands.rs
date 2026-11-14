@@ -394,10 +394,25 @@ pub async fn save_document(
     Ok(SaveOutcome { conflict: false, warning })
 }
 
-/// True when the open file was changed on disk by someone else.
+/// True when the open file was changed on disk by someone else. Async so that
+/// reading and hashing a large file does not block the main thread.
 #[tauri::command]
-pub fn check_external_change(token: u64, state: State<'_, AppState>) -> bool {
-    state.path_for(token).is_some_and(|path| changed_on_disk(&state, token, &path))
+pub async fn check_external_change(token: u64, state: State<'_, AppState>) -> CmdResult<bool> {
+    Ok(state.path_for(token).is_some_and(|path| changed_on_disk(&state, token, &path)))
+}
+
+/// Before a reload replaces the open file, keeps the content PaperPad last
+/// read or wrote in the version archive. An autosave may not have archived it
+/// (one version per 5 minutes), and the file on disk no longer holds it.
+/// `previous` counts only when it is exactly that content (same fingerprint):
+/// the webview cannot put anything else in the archive this way.
+fn keep_previous(state: &AppState, token: u64, path: &Path, previous: &str, keep: u32) -> CmdResult<()> {
+    check_size(previous)?;
+    if previous.is_empty() || state.known(token) != Some(fingerprint(previous.as_bytes())) {
+        return Ok(());
+    }
+    let id = state.doc_id(token);
+    archive_copy(state, archive::Doc { path, id: id.as_deref() }, previous.as_bytes(), false, keep)
 }
 
 #[derive(Serialize)]
@@ -408,10 +423,13 @@ pub struct ReloadedDoc {
 }
 
 /// Reads the open file again, after it changed on disk. The token stays the same.
+/// `previous` is the document as last saved in the editor: it is archived first
+/// (see `keep_previous`), and if that fails nothing is reloaded.
 #[tauri::command]
-pub async fn reload_document(token: u64, state: State<'_, AppState>) -> CmdResult<ReloadedDoc> {
+pub async fn reload_document(token: u64, previous: String, keep: u32, state: State<'_, AppState>) -> CmdResult<ReloadedDoc> {
     let path = state.path_for(token).ok_or("Unknown document")?;
     let format = Format::from_path(&path).filter(|f| f.is_editable()).ok_or("Unsupported file type")?;
+    keep_previous(&state, token, &path, &previous, keep)?;
     let (content, print) = read_file(&path)?;
     let doc_id = doc_id_of(format, &content);
     state.set_known(token, print);
@@ -764,6 +782,35 @@ mod tests {
         // A file that is gone is not a conflict: saving just writes it again.
         fs::remove_file(&path).unwrap();
         assert!(!changed_on_disk(&state, token, &path));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_reload_keeps_what_paperpad_last_wrote() {
+        let dir = std::env::temp_dir().join(format!("paperpad-reload-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.html");
+        let state = AppState::default();
+        state.set_data_dir(dir.join("data"));
+        let token = state.issue_token(path.clone());
+        let doc = archive::Doc { path: &path, id: None };
+        // Saved once (archived), then autosaved within 5 minutes (not archived).
+        archive_copy(&state, doc, b"one", false, 50).unwrap();
+        archive_copy(&state, doc, b"two", true, 50).unwrap();
+        state.set_known(token, fingerprint(b"two"));
+        fs::write(&path, b"theirs").unwrap();
+        // Content that is not what PaperPad wrote is ignored.
+        keep_previous(&state, token, &path, "forged", 50).unwrap();
+        let data = state.data_dir().unwrap();
+        assert_eq!(archive::list(&data, doc).len(), 1);
+        keep_previous(&state, token, &path, "two", 50).unwrap();
+        let versions = archive::list(&data, doc);
+        assert_eq!(versions.len(), 2);
+        assert_eq!(archive::read(&data, doc, &versions[0].id).as_deref(), Some(&b"two"[..]));
+        // Already archived: not repeated.
+        keep_previous(&state, token, &path, "two", 50).unwrap();
+        assert_eq!(archive::list(&data, doc).len(), 2);
         let _ = fs::remove_dir_all(&dir);
     }
 

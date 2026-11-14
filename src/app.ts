@@ -225,7 +225,12 @@ export function startApp() {
         if (auto) throw new Error("the file was changed by another program or computer. Choose Save to decide what to do");
         const choice = await askConflict(file.name);
         if (choice === "cancel") return null;
-        if (choice === "copy") return { ...(await backend.saveConflictCopy(token, content)), docId };
+        if (choice === "copy") {
+          // The copy is a new file, so like Save As it gets its own ID and history.
+          const copyId = docId && newDocId();
+          const copy = copyId ? await serializeDocument(doc, file.format, stem(), copyId) : content;
+          return { ...(await backend.saveConflictCopy(token, copy)), docId: copyId };
+        }
         out = await backend.save(token, content, false, historyKeepCount(), true);
       }
       return { ...file, docId, warning: out.warning };
@@ -242,7 +247,9 @@ export function startApp() {
     if (token === null || saving || isModalOpen() || isDirty()) return;
     try {
       if (!(await backend.changedOnDisk(token))) return;
-      const fresh = await backend.reload(token);
+      // What is about to be replaced goes to the version history first.
+      const previous = await serializeDocument(info.saved, info.format, stem(), info.docId);
+      const fresh = await backend.reload(token, previous, historyKeepCount());
       const doc = await parseDocument(fresh.content, info.format, preferredFont());
       // Typing or another file may have come in while this was read.
       if (info.token !== token || isDirty()) return;

@@ -1,17 +1,20 @@
-// View > Options, in four tabs: Writing feel (caret presets, a preview line
+// View > Options, in five tabs: Writing feel (caret presets, a preview line
 // and the advanced caret settings), Text (default font and spelling), Saving
-// (autosave and a note on crash recovery) and Appearance (color theme and
-// light or dark mode). Changes apply live, except autosave which applies on
+// (autosave and a note on crash recovery), Files (the PaperPad folder and
+// version history) and Appearance (color theme and light or dark mode). All
+// panels share one height, the tallest, so keep each tab short. Changes apply live, except autosave which applies on
 // OK; Cancel puts the old settings back.
 
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
 import { findFont, type FontKey, FONTS, NEW_DOCUMENT_FONT } from "../editor/palette.ts";
 import { createPreview } from "../editor/setup.ts";
+import { backend, inApp } from "../io/backend.ts";
 import { h } from "./dom.ts";
 import { showModal } from "./modal.ts";
 import { currentPalette, loadPref, PALETTES, setPalette, setThemeMode, storePref, themeMode, type ThemeMode } from "./theme.ts";
 import { languageName, parseSpellcheck, storedSpellcheck } from "./spelling.ts";
 import { AUTOSAVE_INTERVALS, type AutosavePrefs, parseAutosave } from "./autosave.ts";
+import { HISTORY_KEEP_CHOICES, parseHistoryKeep } from "./history.ts";
 import { CHOICE_FIELDS, CHOICES, parsePrefs, PRESETS, type PresetId, presetOf } from "./writing-feel.ts";
 
 const PREFS_KEY = "paperpad.caret";
@@ -20,6 +23,7 @@ const FONT_KEY = "paperpad.font";
 const ADVANCED_KEY = "paperpad.options.advanced";
 const TAB_KEY = "paperpad.options.tab";
 const AUTOSAVE_KEY = "paperpad.autosave";
+const HISTORY_KEY = "paperpad.history.keep";
 const PREVIEW_TEXT = "Click here and type to try the caret. The quick brown fox jumps over the lazy dog.";
 
 export function initWritingFeel() {
@@ -129,6 +133,69 @@ function autosaveSection(initial: AutosavePrefs) {
   return { section, value: (): AutosavePrefs => ({ on: box.checked, seconds: Number(select.value) }) };
 }
 
+// ---- documents folder ---------------------------------------------------------------
+
+/**
+ * The folder Open and Save As start in. Rust keeps the path; this only shows
+ * the folder's name. Unlike the other settings it applies at once, because the
+ * choice is made in a native dialog.
+ */
+function folderSection(initial: string | null) {
+  const name = h("strong", {});
+  const clear = h("button", { class: "btn", type: "button", text: "Clear" });
+  const choose = h("button", { class: "btn", type: "button", text: "Choose folder..." });
+  const show = (folder: string | null) => {
+    name.textContent = folder ?? "None";
+    clear.disabled = folder === null;
+  };
+  show(initial);
+  choose.addEventListener("click", () => {
+    void backend.chooseDocumentsFolder().then((folder) => folder && show(folder)).catch(() => {});
+  });
+  clear.addEventListener("click", () => {
+    void backend.clearDocumentsFolder().then(() => show(null)).catch(() => {});
+  });
+  return h(
+    "fieldset",
+    { class: "opt-group opt-stack" },
+    h("legend", { text: "PaperPad folder" }),
+    h("p", {}, "Folder: ", name),
+    h("div", { class: "opt-row" }, choose, clear),
+    h("p", {
+      class: "opt-note",
+      text:
+        "Open and Save as start in this folder. To use PaperPad on more than one computer, choose a folder that your cloud app " +
+        "(Dropbox, OneDrive, Nextcloud, Syncthing and others) keeps in sync. This choice applies at once.",
+    }),
+  );
+}
+
+// ---- version history ----------------------------------------------------------------
+
+let historyKeep = parseHistoryKeep(loadPref(HISTORY_KEY));
+
+/** How many saved versions of each document PaperPad keeps. */
+export const historyKeepCount = () => historyKeep;
+
+function historySection(initial: number) {
+  const select = h("select", { class: "field", id: "opt-history" });
+  for (const [n, text] of HISTORY_KEEP_CHOICES) select.append(h("option", { value: String(n), text }));
+  select.value = String(initial);
+  const section = h(
+    "fieldset",
+    { class: "opt-group opt-stack" },
+    h("legend", { text: "Version history" }),
+    h("div", { class: "opt-grid" }, h("label", { for: select.id, text: "Keep" }), select),
+    h("p", {
+      class: "opt-note",
+      text:
+        "Every save also keeps a copy on this computer, outside your document folders, so you can go back with File, Version history. " +
+        "The oldest copies are deleted first. Autosave adds one at most every 5 minutes.",
+    }),
+  );
+  return { section, value: () => Number(select.value) };
+}
+
 function recoverySection() {
   return h(
     "fieldset",
@@ -177,11 +244,12 @@ function appearanceSection() {
 
 // ---- tabs ---------------------------------------------------------------------------
 
-type TabId = "feel" | "text" | "saving" | "appearance";
+type TabId = "feel" | "text" | "saving" | "files" | "appearance";
 const TABS: [TabId, string][] = [
   ["feel", "Writing feel"],
   ["text", "Text"],
   ["saving", "Saving"],
+  ["files", "Files"],
   ["appearance", "Appearance"],
 ];
 
@@ -243,6 +311,8 @@ export async function openOptions(): Promise<OptionsResult> {
   const paletteSaved = currentPalette();
   const modeSaved = themeMode();
   const saving = autosaveSection(autosave);
+  const history = historySection(historyKeep);
+  const folder = inApp ? folderSection(await backend.documentsFolder().catch(() => null)) : null;
 
   const radios = new Map<PresetId | "custom", HTMLInputElement>();
   const choice = (id: PresetId | "custom", label: string) => {
@@ -309,6 +379,7 @@ export async function openOptions(): Promise<OptionsResult> {
     ),
     text: h("div", { class: "options" }, font.section, spelling.section),
     saving: h("div", { class: "options" }, saving.section, recoverySection()),
+    files: h("div", { class: "options" }, ...(folder ? [folder] : []), history.section),
     appearance: appearanceSection(),
   });
 
@@ -328,6 +399,8 @@ export async function openOptions(): Promise<OptionsResult> {
     storePref(SPELL_KEY, storedSpellcheck(spelling.checked()));
     storePref(FONT_KEY, font.value());
     setAutosavePrefs(saving.value());
+    historyKeep = history.value();
+    storePref(HISTORY_KEY, String(historyKeep));
     return font.value() !== fontSaved ? { fontChanged: font.value() } : {};
   }
   setCaretPrefs(saved);

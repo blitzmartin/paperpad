@@ -20,6 +20,21 @@ pub struct AppState {
     pub dirty: AtomicBool,
     recent: Mutex<Vec<PathBuf>>,
     data_dir: Mutex<Option<PathBuf>>,
+    /// The folder the user keeps their documents in (often one a sync client
+    /// watches). Open and Save As dialogs start there.
+    documents_dir: Mutex<Option<PathBuf>>,
+    /// The document ID of each open document (from its file), keying its version history.
+    doc_ids: Mutex<HashMap<u64, String>>,
+    /// What each open file held when PaperPad last read or wrote it. A different
+    /// file on disk later means another program or computer changed it.
+    known: Mutex<HashMap<u64, Fingerprint>>,
+}
+
+/// Length and hash of a file's bytes.
+pub type Fingerprint = (u64, u64);
+
+pub fn fingerprint(bytes: &[u8]) -> Fingerprint {
+    (bytes.len() as u64, crate::archive::fnv1a(bytes))
 }
 
 impl AppState {
@@ -35,6 +50,29 @@ impl AppState {
         self.tokens.lock().ok()?.get(&token).cloned()
     }
 
+    pub fn set_doc_id(&self, token: u64, id: Option<String>) {
+        if let Ok(mut map) = self.doc_ids.lock() {
+            match id {
+                Some(id) => map.insert(token, id),
+                None => map.remove(&token),
+            };
+        }
+    }
+
+    pub fn doc_id(&self, token: u64) -> Option<String> {
+        self.doc_ids.lock().ok()?.get(&token).cloned()
+    }
+
+    pub fn set_known(&self, token: u64, print: Fingerprint) {
+        if let Ok(mut map) = self.known.lock() {
+            map.insert(token, print);
+        }
+    }
+
+    pub fn known(&self, token: u64) -> Option<Fingerprint> {
+        self.known.lock().ok()?.get(&token).copied()
+    }
+
     pub fn set_data_dir(&self, dir: PathBuf) {
         if let Ok(mut d) = self.data_dir.lock() {
             *d = Some(dir);
@@ -43,6 +81,42 @@ impl AppState {
 
     pub fn data_dir(&self) -> Option<PathBuf> {
         self.data_dir.lock().ok()?.clone()
+    }
+
+    // ---- documents folder --------------------------------------------------
+
+    pub fn load_documents_dir(&self) {
+        let Some(file) = self.data_dir().map(|d| d.join("documents-folder.json")) else { return };
+        let Ok(text) = std::fs::read_to_string(file) else { return };
+        let Ok(dir) = serde_json::from_str::<PathBuf>(&text) else { return };
+        if let Ok(mut d) = self.documents_dir.lock() {
+            *d = Some(dir);
+        }
+    }
+
+    /// The chosen folder, only while it still exists.
+    pub fn documents_dir(&self) -> Option<PathBuf> {
+        self.documents_dir.lock().ok()?.clone().filter(|d| d.is_dir())
+    }
+
+    pub fn set_documents_dir(&self, dir: Option<PathBuf>) {
+        if let Ok(mut d) = self.documents_dir.lock() {
+            *d = dir.clone();
+        }
+        let Some(data) = self.data_dir() else { return };
+        let file = data.join("documents-folder.json");
+        match dir {
+            Some(dir) => {
+                if std::fs::create_dir_all(&data).is_ok() {
+                    if let Ok(json) = serde_json::to_string(&dir) {
+                        let _ = std::fs::write(file, json);
+                    }
+                }
+            }
+            None => {
+                let _ = std::fs::remove_file(file);
+            }
+        }
     }
 
     // ---- recent files ------------------------------------------------------

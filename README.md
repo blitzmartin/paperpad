@@ -21,8 +21,42 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
 - **Autosave** you can turn on in File, Autosave or in View, Options, Saving, where you also choose how soon changes are saved: from 10 seconds to 10 minutes. It is off until you turn it on. It saves PaperPad documents once they have a file, and also when you switch to another window. Text and Markdown files are only saved when you choose Save, because they keep no formatting.
+- **PaperPad folder:** in View, Options, Files you can choose the folder where you keep your documents. Open and Save as start there. To use PaperPad on several computers, choose a folder that your cloud app keeps in sync (see [Using PaperPad on more than one computer](#using-paperpad-on-more-than-one-computer)). PaperPad never connects to the internet: your cloud app does the syncing and PaperPad just works on the files. The choice applies at once.
+- **Welcome window:** the first time PaperPad starts it explains the PaperPad folder and offers to choose it. It is optional: choose "Not now" and everything still works, you just browse to your documents each time. It is shown once and the folder can be set later in View, Options, Files.
+- **Safe with a cloud app:** each PaperPad file carries a small random document ID, so its history follows it when you rename or move it. If another computer saves a file you have open, PaperPad notices:
+  - If you have no unsaved changes, it reloads the new version when you come back to the window.
+  - If you have unsaved changes, it never overwrites the other version silently. When you save it asks you to either keep both (your version is saved next to it as `Name (conflict 20261114-153000).html`) or replace the other version, which stays in the version history.
+  - Autosave never decides this on its own. It stops and waits for you to choose Save.
+- **Version history:** every time you save, PaperPad also keeps a copy named with the date and time (for example `Letter_20261114-153000.html`, in UTC) in its own data folder, written before your file is. File, Version history lists the copies and restores one as a change you can undo. Identical saves are not repeated, autosave adds a version at most every 5 minutes and the oldest copies are deleted beyond the number you choose in View, Options, Files (20, 50 or 100, 50 by default). The copies stay on your computer and never go into your document folders.
 - **Crash recovery:** with or without autosave, PaperPad keeps a copy of unsaved work in its own data folder every 15 seconds, including new documents that were never saved. If the app or the computer stops unexpectedly, PaperPad offers to restore that copy the next time it starts. The copy is removed once you save or choose not to keep your changes.
 - **Small:** about 100 KB of gzipped JavaScript at startup, installers of a few MB. Documents can be up to 32 MB, which leaves room for many images.
+
+## Using PaperPad on more than one computer
+
+PaperPad has no sync of its own and never connects to the internet. Instead you pick a folder that a sync app you already trust keeps identical on all your computers. Your documents are ordinary files, so any service that syncs a folder works.
+
+1. Install the sync app on each computer and sign in to the same account.
+2. Make a folder inside it, for example `Dropbox/PaperPad`.
+3. In PaperPad choose that folder in View, Options, Files (or in the welcome window). Do the same on the other computers.
+
+The services below are examples, not recommendations. What they offer changes over time, so check the provider before you rely on it.
+
+| Service | Windows | macOS | Linux | Good to know |
+|---|---|---|---|---|
+| Dropbox | yes | yes | yes | The same on all three systems. The free plan is enough for text documents. |
+| Nextcloud | yes | yes | yes | Open source. You host it yourself or use a provider. |
+| Syncthing | yes | yes | yes | Open source, with no server. Your computers send files to each other, so two of them must be on at the same time. |
+| pCloud, MEGA | yes | yes | yes | Free plans are small. |
+| OneDrive | yes | yes | no official app | Fine if you use Windows and macOS only. |
+| Google Drive | yes | yes | no official app | Same as OneDrive. |
+| iCloud Drive | limited | yes | no | Best kept for Apple devices. |
+
+Tips:
+
+- Let the sync app finish (most show an "up to date" icon) before you close one computer and open the same document on another. Otherwise you may open an older version, and PaperPad will treat the newer one as a conflict.
+- If your sync app keeps some files "online only", make the PaperPad folder available offline so PaperPad can open them.
+- Version history stays on each computer and is not synced. Your documents travel, their history does not.
+- If two computers change the same document, PaperPad never overwrites either version silently: when you save it asks you to keep both or replace the other one, and a replaced version stays in the version history of the computer that replaced it.
 
 ## Writing feel presets
 

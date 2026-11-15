@@ -16,7 +16,7 @@ Think WordPad in 1995, with a softer palette, a dark mode and today's file forma
 - **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
 - **Spell checking** you can turn on in View, Options (it is off until you do). It checks the Windows display language only, so words in other languages are underlined too.
 - **Themes:** Sage, Gray, Sand, Slate, Rose and Lilac, all soft on the eyes, from View, Theme. Each one has a light and a dark mode, which follows your system until you choose.
-- **Local only:** no accounts, no network, no telemetry. Documents never leave your computer.
+- **Local only:** no accounts, no network, no telemetry.
 - **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links and it stays readable as plain text, so your writing is never locked in.
 - **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.
 - **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.

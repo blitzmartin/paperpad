@@ -652,8 +652,7 @@ export function startApp() {
           h("p", { text: "A fast, light and local-first word processor." }),
           h("p", { text: "Copyright © 2026 Paper Board Labs." }),
           h("p", { text: "Free for personal and other noncommercial use under the PolyForm Noncommercial License 1.0.0." }),
-          h("p", { text: "Includes the fonts Atkinson Hyperlegible, Inter, Literata and JetBrains Mono, under the SIL Open Font License 1.1." }),
-          h("p", { text: "Your documents never leave your computer." }),
+          h("p", { text: "Includes the fonts Atkinson Hyperlegible, Inter, Literata and JetBrains Mono, under the SIL Open Font License 1.1." })
         ),
       ),
     );

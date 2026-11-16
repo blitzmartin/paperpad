@@ -8,7 +8,8 @@
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
 import { findFont, type FontKey, FONTS, NEW_DOCUMENT_FONT } from "../editor/palette.ts";
 import { createPreview } from "../editor/setup.ts";
-import { backend, inApp } from "../io/backend.ts";
+import * as backend from "../io/backend.ts";
+import { inApp } from "../io/backend.ts";
 import { h } from "./dom.ts";
 import { showModal } from "./modal.ts";
 import { currentPalette, loadPref, PALETTES, setPalette, setThemeMode, storePref, themeMode, type ThemeMode } from "./theme.ts";

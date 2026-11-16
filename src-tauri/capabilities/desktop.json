@@ -1,7 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "main-window",
-  "description": "The only capability. The webview never receives file paths, filesystem access, shell, network or window APIs. It can call PaperPad's own commands and print.",
+  "identifier": "desktop",
+  "description": "Desktop only (Linux, macOS, Windows). The webview never receives file paths, filesystem access, shell, network or window APIs. It can call PaperPad's own commands and print. Each platform has exactly one capability: tests/core/capabilities.test.ts checks it.",
+  "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
   "permissions": [
     "core:webview:allow-print",

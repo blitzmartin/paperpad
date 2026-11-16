@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { toDocxParts } from "../src/export/docx.ts";
-import { toRtf } from "../src/export/rtf.ts";
-import { DEFAULT_STYLES, normalizeStyles, resolveStyles, styleVars } from "../src/editor/styles.ts";
+import { toDocxParts } from "../../src/export/docx.ts";
+import { toRtf } from "../../src/export/rtf.ts";
+import { DEFAULT_STYLES, normalizeStyles, resolveStyles, styleVars } from "../../src/editor/styles.ts";
 import { sampleDoc } from "./fixture.ts";
 
 test("documents without styles use the defaults, in the document's font", () => {
@@ -54,8 +54,8 @@ test("exports follow the document's styles", () => {
 
 test("headings and quotes lose hand-set font, size and color, but keep emphasis", async () => {
   const { EditorState } = await import("prosemirror-state");
-  const { schema } = await import("../src/editor/schema.ts");
-  const { lockTransaction, lockedRole } = await import("../src/editor/roles.ts");
+  const { schema } = await import("../../src/editor/schema.ts");
+  const { lockTransaction, lockedRole } = await import("../../src/editor/roles.ts");
   const m = schema.marks;
   const marked = [m.font.create({ key: "georgia" }), m.size.create({ key: "28" }), m.color.create({ key: "red" }), m.strong.create()];
   const doc = schema.node("doc", null, [
@@ -121,8 +121,8 @@ test("the horizontal rule style is checked and reaches the editor, Word and RTF"
 
 test("Enter keeps the font and size picked for Normal text, but not after a heading", async () => {
   const { EditorState, TextSelection } = await import("prosemirror-state");
-  const { schema } = await import("../src/editor/schema.ts");
-  const { enter } = await import("../src/editor/setup.ts");
+  const { schema } = await import("../../src/editor/schema.ts");
+  const { enter } = await import("../../src/editor/setup.ts");
   const m = schema.marks;
   const georgia = [m.font.create({ key: "georgia" }), m.size.create({ key: "16" })];
   const press = (state: InstanceType<typeof EditorState>) => {
@@ -161,8 +161,8 @@ test("Enter keeps the font and size picked for Normal text, but not after a head
 
 test("Update Normal to match copies font and size into Normal and drops marks that became redundant", async () => {
   const { EditorState, TextSelection } = await import("prosemirror-state");
-  const { schema } = await import("../src/editor/schema.ts");
-  const { updateNormalToMatch } = await import("../src/editor/commands.ts");
+  const { schema } = await import("../../src/editor/schema.ts");
+  const { updateNormalToMatch } = await import("../../src/editor/commands.ts");
   const m = schema.marks;
   const georgia16 = [m.font.create({ key: "georgia" }), m.size.create({ key: "16" })];
   const doc = schema.node("doc", { font: "trebuchet" }, [

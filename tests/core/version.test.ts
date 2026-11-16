@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { VERSION_FILES, VERSION_FORMAT } from "../scripts/version-files.ts";
-import { VERSION } from "../src/version.ts";
+import { VERSION_FILES, VERSION_FORMAT } from "../../scripts/version-files.ts";
+import { VERSION } from "../../src/version.ts";
 
 test("every file holds the same version (change it with npm run bump)", () => {
   assert.match(VERSION, VERSION_FORMAT);

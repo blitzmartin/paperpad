@@ -6,7 +6,8 @@
 // It is shown again only if the "seen" flag is lost (browser storage can be
 // cleared) and no folder is set, which is harmless.
 
-import { backend, inApp } from "../io/backend.ts";
+import * as backend from "../io/backend.ts";
+import { inApp } from "../io/backend.ts";
 import { h } from "./dom.ts";
 import { showModal } from "./modal.ts";
 import { loadPref, storePref } from "./theme.ts";

@@ -6,7 +6,7 @@ Installers for every platform are built by `.github/workflows/release.yml`. Chec
 
 - It starts when a release is **published** on GitHub. Saving a release as a draft does nothing, because GitHub never fires workflow events for drafts. Pushing a tag on its own does nothing either.
 - The `verify` job checks that the release tag is `v` plus the `version` in `src-tauri/tauri.conf.json` (for example `v0.1.0` for `0.1.0`). If they differ, the run fails in seconds without building.
-- Four builds then run: Windows x64, macOS Apple Silicon, macOS Intel and Linux x64. Each one runs typecheck and tests, then uploads its installers to the release.
+- Four builds then run: Windows x64, macOS Apple Silicon, macOS Intel and Linux x64. Each one runs the core and desktop typecheck and tests (`typecheck:desktop`, `test:desktop`), then uploads its installers to the release. CI on every push checks everything.
 - The title, notes and pre-release flag stay as you set them on GitHub. The workflow only adds files.
 - Running the workflow by hand (Actions, Release, Run workflow) builds every platform and attaches the installers to the run as downloadable artifacts. Nothing is published.
 
@@ -18,7 +18,7 @@ Installers for every platform are built by `.github/workflows/release.yml`. Chec
    npm run bump 0.2.0   # or: patch, minor, major
    ```
 
-   It updates every file that holds the version, and `tests/version.test.ts` fails if any of them disagree. See [The version](#the-version) below.
+   It updates every file that holds the version, and `tests/core/version.test.ts` fails if any of them disagree. See [The version](#the-version) below.
 2. **Check locally:** `npm run typecheck`, `npm test`, `npx vite build` and `cd src-tauri && cargo test`.
 3. **Commit and push to `main`.** Wait for CI to pass.
 4. **Optional dry run:** Actions, Release, Run workflow. Download the artifacts and try the installers.

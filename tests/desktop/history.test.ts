@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_HISTORY_KEEP, parseHistoryKeep, sizeLabel } from "../src/ui/history.ts";
+import { DEFAULT_HISTORY_KEEP, parseHistoryKeep, sizeLabel } from "../../src/ui/history.ts";
 
 test("version history keeps 50 versions unless another known number is stored", () => {
   assert.equal(DEFAULT_HISTORY_KEEP, 50);

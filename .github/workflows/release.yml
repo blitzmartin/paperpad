@@ -105,10 +105,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # Core and desktop only: a problem in the mobile shell must not block a
+      # desktop release. ci.yml checks everything on every push.
       - name: Typecheck and test
         run: |
-          npm run typecheck
-          npm test
+          npm run typecheck:desktop
+          npm run test:desktop
 
       - name: Build and (on release) upload installers to the release
         uses: tauri-apps/tauri-action@v1

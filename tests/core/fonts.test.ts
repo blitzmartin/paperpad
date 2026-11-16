@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
-import { FONTS } from "../src/editor/palette.ts";
-import { schema } from "../src/editor/schema.ts";
-import { toDocxParts } from "../src/export/docx.ts";
-import { toRtf } from "../src/export/rtf.ts";
+import { FONTS } from "../../src/editor/palette.ts";
+import { schema } from "../../src/editor/schema.ts";
+import { toDocxParts } from "../../src/export/docx.ts";
+import { toRtf } from "../../src/export/rtf.ts";
 
-const root = new URL("../", import.meta.url);
+const root = new URL("../../", import.meta.url);
 const css = readFileSync(new URL("src/styles/fonts.css", root), "utf8");
 const main = readFileSync(new URL("src/styles/main.css", root), "utf8");
 

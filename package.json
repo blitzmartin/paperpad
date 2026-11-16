@@ -7,9 +7,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit -p tsconfig.desktop.json && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "typecheck:desktop": "tsc --noEmit -p tsconfig.desktop.json",
+    "test": "node --experimental-strip-types --test \"tests/**/*.test.ts\"",
+    "test:desktop": "node --experimental-strip-types --test \"tests/core/**/*.test.ts\" \"tests/desktop/**/*.test.ts\"",
     "tauri": "tauri",
     "bump": "node --experimental-strip-types scripts/bump.ts"
   },

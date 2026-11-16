@@ -2,16 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { TextSelection } from "prosemirror-state";
-import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../src/editor/actions.ts";
-import { deleteRuleBefore, exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../src/editor/commands.ts";
-import { blockBreakPos, fitGapHeights, GAP, gapTarget, MARGIN, PAGE_H } from "../src/editor/pages.ts";
-import { keyLabel, MOD_LABEL } from "../src/ui/keys.ts";
-import { languageName, parseSpellcheck, storedSpellcheck } from "../src/ui/spelling.ts";
-import { parsePrefs, PRESETS, type PresetId, presetOf } from "../src/ui/writing-feel.ts";
-import { schema } from "../src/editor/schema.ts";
-import { newState } from "../src/editor/setup.ts";
-import { toDocxParts } from "../src/export/docx.ts";
-import { toRtf } from "../src/export/rtf.ts";
+import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../../src/editor/actions.ts";
+import { deleteRuleBefore, exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../../src/editor/commands.ts";
+import { blockBreakPos, fitGapHeights, GAP, gapTarget, MARGIN, PAGE_H } from "../../src/editor/pages.ts";
+import { schema } from "../../src/editor/schema.ts";
+import { newState } from "../../src/editor/setup.ts";
+import { toDocxParts } from "../../src/export/docx.ts";
+import { toRtf } from "../../src/export/rtf.ts";
 
 const N = schema.nodes;
 const p = (text: string) => N.paragraph.create(null, text ? schema.text(text) : undefined);
@@ -120,35 +117,6 @@ test("every key is bound to one action at most", () => {
   assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), []);
 });
 
-test("shortcut labels read like menu shortcuts", () => {
-  assert.equal(keyLabel("Shift-Mod-x"), `${MOD_LABEL}+Shift+X`);
-  assert.equal(keyLabel("Mod-Alt-1"), `${MOD_LABEL}+Alt+1`);
-  assert.equal(keyLabel("Mod--"), `${MOD_LABEL}+-`);
-  assert.equal(keyLabel("Mod-+"), `${MOD_LABEL}++`);
-  assert.equal(keyLabel("F1"), "F1");
-});
-
-test("writing feel presets are told apart and stored settings are checked", () => {
-  for (const id of Object.keys(PRESETS) as PresetId[]) assert.equal(presetOf(PRESETS[id].prefs), id);
-  assert.equal(presetOf({ ...PRESETS.smooth.prefs, shape: "underscore" }), null, "custom");
-  assert.deepEqual(parsePrefs(null, false), PRESETS.calm.prefs, "Calm is the default");
-  assert.deepEqual(parsePrefs("not json", true), PRESETS.classic.prefs, "reduced motion");
-  const stored = parsePrefs(JSON.stringify({ movement: "smoother", blink: "nope", shape: "underscore", smoothScroll: "yes" }), false);
-  assert.deepEqual(stored, { ...PRESETS.calm.prefs, movement: "smoother", shape: "underscore" });
-});
-
-test("spell checking is off by default and the setting round trips", () => {
-  assert.equal(parseSpellcheck(null), false);
-  assert.equal(parseSpellcheck("garbage"), false);
-  for (const on of [true, false]) assert.equal(parseSpellcheck(storedSpellcheck(on)), on);
-});
-
-test("the checked language is shown by name", () => {
-  assert.equal(languageName("en-US"), "English (United States)");
-  assert.equal(languageName("it"), "Italian");
-  assert.equal(languageName("not a tag"), "not a tag");
-});
-
 test("a page break before the first item of a list goes before the list", () => {
   const list = N.bullet_list.create(null, [N.list_item.create(null, p("one")), N.list_item.create(null, p("two"))]);
   const doc = N.doc.create(null, [p("a"), list]);
@@ -169,7 +137,7 @@ test("page spacers are sized so every page starts at its top margin", () => {
 });
 
 test("every DOCX part is allowed by the Rust export command", () => {
-  const rust = readFileSync(new URL("../src-tauri/src/commands.rs", import.meta.url), "utf8");
+  const rust = readFileSync(new URL("../../src-tauri/src/commands.rs", import.meta.url), "utf8");
   // The list ends at the "];" line (part names such as "[Content_Types].xml" contain brackets).
   const allowed = /const DOCX_PARTS[^=]*=\s*&\[([\s\S]*?)\n\];/.exec(rust)![1]!.match(/"[^"]+"/g)!.map((s) => s.slice(1, -1));
   const doc = N.doc.create({ pageNumbers: true }, [p("hi")]);

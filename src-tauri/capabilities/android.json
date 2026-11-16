@@ -1,0 +1,22 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "android",
+  "description": "Android only. Documents (open, save, conflicts, versions, images) and crash recovery. No recent files, documents folder, export or print yet: see ANDROID.md. Each platform has exactly one capability: tests/core/capabilities.test.ts checks it.",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": [
+    "allow-open-document",
+    "allow-save-document",
+    "allow-save-document-as",
+    "allow-check-external-change",
+    "allow-reload-document",
+    "allow-save-conflict-copy",
+    "allow-list-versions",
+    "allow-read-version",
+    "allow-pick-image",
+    "allow-set-document-state",
+    "allow-recovery-write",
+    "allow-recovery-read",
+    "allow-recovery-clear"
+  ]
+}

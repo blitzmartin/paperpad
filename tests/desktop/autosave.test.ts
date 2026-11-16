@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_AUTOSAVE, parseAutosave } from "../src/ui/autosave.ts";
+import { DEFAULT_AUTOSAVE, parseAutosave } from "../../src/ui/autosave.ts";
 
 test("autosave settings default to off, every 30 seconds when turned on", () => {
   assert.deepEqual(parseAutosave(null), DEFAULT_AUTOSAVE);

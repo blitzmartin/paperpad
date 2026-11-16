@@ -122,8 +122,9 @@ Other scripts:
 
 ```sh
 npm run dev           # frontend only, in a browser (open and save are disabled)
-npm run typecheck
-npm test              # exporter, palette and editor tests (Node's built-in runner)
+npm run typecheck     # everything (the desktop build checks core and desktop only)
+npm test              # every test (Node's built-in runner): tests/core and tests/desktop
+npm run test:desktop  # core and desktop tests only, as the release workflow runs them
 cd src-tauri && cargo test
 npm run bump 0.2.0    # set the version everywhere (or patch, minor, major)
 ```

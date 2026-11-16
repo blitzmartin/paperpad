@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering;
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Response;
 use tauri::{State, Window};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, FileDialogBuilder, FilePath};
 
 use crate::archive;
 use crate::base64;
@@ -250,23 +250,40 @@ fn opened(state: &AppState, path: PathBuf) -> CmdResult<OpenedDoc> {
     Ok(OpenedDoc { name, format: format.name(), content, doc_id, token })
 }
 
+/// A native file dialog for this window. On desktop it is attached to the
+/// window (modal, centered on it); Android dialogs have no parent window.
+fn file_dialog(window: &Window) -> FileDialogBuilder<tauri::Wry> {
+    let dialog = window.dialog().file();
+    #[cfg(desktop)]
+    let dialog = dialog.set_parent(window);
+    dialog
+}
+
+/// The path of the file the user picked, or None when they cancelled.
+///
+/// A pick that is not a filesystem path (an Android `content://` URI) is an
+/// error, never a cancel: treated as a cancel, Save would look like it worked
+/// and the user would think the document was saved. On desktop the dialog
+/// always returns a path.
+fn picked_path(picked: Option<FilePath>) -> CmdResult<Option<PathBuf>> {
+    picked
+        .map(|p| p.into_path().map_err(|_| "PaperPad cannot use this location yet. Nothing was read or written.".to_string()))
+        .transpose()
+}
+
 /// Shows a native Save dialog for one file type. Returns None when the user cancels.
-fn save_dialog(window: &Window, title: &str, label: &str, extensions: &[&str], suggested: &str, start: Option<PathBuf>) -> Option<PathBuf> {
-    let mut dialog = window
-        .dialog()
-        .file()
-        .set_parent(window)
+fn save_dialog(window: &Window, title: &str, label: &str, extensions: &[&str], suggested: &str, start: Option<PathBuf>) -> CmdResult<Option<PathBuf>> {
+    let mut dialog = file_dialog(window)
         .set_title(title)
         .set_file_name(format!("{}.{}", clean_stem(suggested), extensions[0]))
         .add_filter(label, extensions);
     if let Some(dir) = start {
         dialog = dialog.set_directory(dir);
     }
-    let path = dialog.blocking_save_file()?.into_path().ok()?;
-    Some(ensure_extension(path, extensions))
+    Ok(picked_path(dialog.blocking_save_file())?.map(|path| ensure_extension(path, extensions)))
 }
 
-fn save_dialog_for(window: &Window, format: Format, suggested: &str, start: Option<PathBuf>) -> Option<PathBuf> {
+fn save_dialog_for(window: &Window, format: Format, suggested: &str, start: Option<PathBuf>) -> CmdResult<Option<PathBuf>> {
     save_dialog(window, "Save as", format.label(), format.extensions(), suggested, start)
 }
 
@@ -278,7 +295,7 @@ fn save_dialog_for(window: &Window, format: Format, suggested: &str, start: Opti
 #[tauri::command]
 pub async fn open_document(window: Window, state: State<'_, AppState>) -> CmdResult<Option<OpenedDoc>> {
     let all: Vec<&str> = Format::EDITABLE.iter().flat_map(|f| f.extensions().iter().copied()).collect();
-    let mut dialog = window.dialog().file().set_parent(&window).set_title("Open").add_filter("All supported", &all);
+    let mut dialog = file_dialog(&window).set_title("Open").add_filter("All supported", &all);
     for f in Format::EDITABLE {
         dialog = dialog.add_filter(f.label(), f.extensions());
     }
@@ -286,7 +303,7 @@ pub async fn open_document(window: Window, state: State<'_, AppState>) -> CmdRes
         dialog = dialog.set_directory(dir);
     }
     let picked = dialog.blocking_pick_file();
-    let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
+    let Some(path) = picked_path(picked)? else {
         return Ok(None);
     };
     opened(&state, path).map(Some)
@@ -475,7 +492,7 @@ pub async fn save_document_as(
     state: State<'_, AppState>,
 ) -> CmdResult<Option<SavedDoc>> {
     check_size(&content)?;
-    let Some(path) = save_dialog_for(&window, Format::Html, &suggested_name, state.documents_dir()) else {
+    let Some(path) = save_dialog_for(&window, Format::Html, &suggested_name, state.documents_dir())? else {
         return Ok(None);
     };
     let id = doc_id_of(Format::Html, &content);
@@ -504,9 +521,19 @@ pub fn get_documents_folder(state: State<'_, AppState>) -> Option<String> {
 
 /// Shows the native folder picker and remembers the choice. Returns the new
 /// folder's name, or None when the user cancels.
+///
+/// Desktop only: the dialog plugin has no folder picker on Android, and the
+/// Android capability does not grant this command (see ANDROID.md).
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn choose_documents_folder() -> CmdResult<Option<String>> {
+    Err("Choosing a folder is not available on this device".into())
+}
+
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn choose_documents_folder(window: Window, state: State<'_, AppState>) -> CmdResult<Option<String>> {
-    let mut dialog = window.dialog().file().set_parent(&window).set_title("Choose your PaperPad folder");
+    let mut dialog = file_dialog(&window).set_title("Choose your PaperPad folder");
     if let Some(dir) = state.documents_dir() {
         dialog = dialog.set_directory(dir);
     }
@@ -571,7 +598,7 @@ pub async fn export_text(
 ) -> CmdResult<Option<String>> {
     check_size(&content)?;
     let format = Format::from_name(&format).ok_or("Unknown export format")?;
-    let Some(path) = save_dialog_for(&window, format, &suggested_name, None) else {
+    let Some(path) = save_dialog_for(&window, format, &suggested_name, None)? else {
         return Ok(None);
     };
     write_atomic(&path, content.as_bytes())?;
@@ -624,7 +651,7 @@ pub async fn export_docx(window: Window, parts: Vec<ZipPart>, suggested_name: St
     let entries: Vec<(&str, &[u8])> = parts.iter().zip(&data).map(|(p, d)| (p.name.as_str(), d.as_ref())).collect();
     let bytes = zip::build(&entries)?;
 
-    let Some(path) = save_dialog(&window, "Export as Word document", "Word document", &["docx"], &suggested_name, None) else {
+    let Some(path) = save_dialog(&window, "Export as Word document", "Word document", &["docx"], &suggested_name, None)? else {
         return Ok(None);
     };
     write_atomic(&path, &bytes)?;
@@ -647,14 +674,11 @@ fn is_image(b: &[u8]) -> bool {
 /// and stores it in the document. Empty bytes mean the user cancelled.
 #[tauri::command]
 pub async fn pick_image(window: Window) -> CmdResult<Response> {
-    let picked = window
-        .dialog()
-        .file()
-        .set_parent(&window)
+    let picked = file_dialog(&window)
         .set_title("Add image")
         .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
         .blocking_pick_file();
-    let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
+    let Some(path) = picked_path(picked)? else {
         return Ok(Response::new(Vec::new()));
     };
     let meta = fs::metadata(&path).map_err(|e| format!("Cannot read file: {e}"))?;
@@ -812,6 +836,15 @@ mod tests {
         keep_previous(&state, token, &path, "two", 50).unwrap();
         assert_eq!(archive::list(&data, doc).len(), 2);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_pick_that_is_not_a_path_is_an_error_not_a_cancel() {
+        assert_eq!(picked_path(None), Ok(None));
+        let path = std::env::temp_dir().join("a.html");
+        assert_eq!(picked_path(Some(FilePath::Path(path.clone()))), Ok(Some(path)));
+        let uri = FilePath::Url("content://com.android.providers.downloads.documents/document/msf%3A1".parse().unwrap());
+        assert!(picked_path(Some(uri)).is_err());
     }
 
     #[test]

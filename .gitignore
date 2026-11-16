@@ -1,7 +1,10 @@
 node_modules/
 dist/
 src-tauri/target/
-src-tauri/gen/
+# Generated schemas only. gen/android is versioned: its Manifest and signing
+# setup are edited by hand (see ANDROID.md). Its own .gitignore keeps build
+# output and keystore files out.
+src-tauri/gen/schemas/
 *.log
 .DS_Store
 Thumbs.db

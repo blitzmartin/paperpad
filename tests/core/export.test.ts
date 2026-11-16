@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { toDocxParts, xmlEscape } from "../src/export/docx.ts";
-import { fromMarkdown, toMarkdown } from "../src/export/markdown.ts";
-import { rtfEscape, toRtf } from "../src/export/rtf.ts";
-import { toPlainText } from "../src/export/text.ts";
+import { toDocxParts, xmlEscape } from "../../src/export/docx.ts";
+import { fromMarkdown, toMarkdown } from "../../src/export/markdown.ts";
+import { rtfEscape, toRtf } from "../../src/export/rtf.ts";
+import { toPlainText } from "../../src/export/text.ts";
 import { sampleDoc } from "./fixture.ts";
 
 test("markdown export keeps structure and drops styling", () => {

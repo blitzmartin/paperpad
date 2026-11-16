@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { NodeSelection, TextSelection } from "prosemirror-state";
-import { deleteRuleBefore, insertImage, selectedImage, setAlign, setImage } from "../src/editor/commands.ts";
-import { cleanAlt, displaySize, EXPORT_COLUMN, IMAGE_SIZES, imageAttrs, imageDims, parseDataUrl, sniffImage } from "../src/editor/image.ts";
-import { schema } from "../src/editor/schema.ts";
-import { newState } from "../src/editor/setup.ts";
-import { toDocxParts } from "../src/export/docx.ts";
-import { toMarkdown } from "../src/export/markdown.ts";
-import { toRtf } from "../src/export/rtf.ts";
-import { toPlainText } from "../src/export/text.ts";
+import { deleteRuleBefore, insertImage, selectedImage, setAlign, setImage } from "../../src/editor/commands.ts";
+import { cleanAlt, displaySize, EXPORT_COLUMN, IMAGE_SIZES, imageAttrs, imageDims, parseDataUrl, sniffImage } from "../../src/editor/image.ts";
+import { schema } from "../../src/editor/schema.ts";
+import { newState } from "../../src/editor/setup.ts";
+import { toDocxParts } from "../../src/export/docx.ts";
+import { toMarkdown } from "../../src/export/markdown.ts";
+import { toRtf } from "../../src/export/rtf.ts";
+import { toPlainText } from "../../src/export/text.ts";
 
 const N = schema.nodes;
 const p = (text: string) => N.paragraph.create(null, text ? schema.text(text) : undefined);
@@ -73,7 +73,7 @@ test("display sizes keep the aspect ratio and stay inside the column and the pag
 });
 
 test("every image size has a CSS class", () => {
-  const css = readFileSync(new URL("../src/styles/main.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../../src/styles/main.css", import.meta.url), "utf8");
   const missing = IMAGE_SIZES.filter((s) => s.pct !== null && !new RegExp(`\\.doc figure\\.img-${s.key} img \\{\\s*width: ${s.pct}%;`).test(css));
   assert.deepEqual(missing.map((s) => s.key), []);
 });
@@ -155,7 +155,7 @@ test("an image with text around floats in Word beside the next paragraph", () =>
 });
 
 test("Word image parts are named the way the Rust export command allows", () => {
-  const rust = readFileSync(new URL("../src-tauri/src/commands.rs", import.meta.url), "utf8");
+  const rust = readFileSync(new URL("../../src-tauri/src/commands.rs", import.meta.url), "utf8");
   assert.match(rust, /strip_prefix\("word\/media\/image"\)/);
   assert.match(rust, /matches!\(ext, "png" \| "jpeg"\)/);
   const jpeg = N.image.create({ ...imageAttrs(`data:image/jpeg;base64,${b64(jpegHeader(8, 8))}`, "", null, null) });

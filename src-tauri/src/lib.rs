@@ -4,11 +4,8 @@ mod commands;
 mod state;
 mod zip;
 
-use std::sync::atomic::Ordering;
-
 use tauri::plugin::{Builder as PluginBuilder, TauriPlugin};
-use tauri::{Manager, Runtime, WindowEvent};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tauri::{Manager, Runtime};
 
 use state::AppState;
 
@@ -25,8 +22,11 @@ fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
+// On Android the app starts from this function, called by the generated
+// Kotlin activity. On desktop the attribute does nothing (main.rs calls it).
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // The dialog plugin is used from Rust only. Its JS commands exist but
         // no capability grants them, so the webview cannot call them.
         .plugin(tauri_plugin_dialog::init())
@@ -40,36 +40,6 @@ pub fn run() {
                 state.load_documents_dir();
             }
             Ok(())
-        })
-        .on_window_event(|window, event| {
-            // Close guard: the frontend reports unsaved changes through
-            // set_document_state, so the webview needs no window permissions.
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                let state = window.state::<AppState>();
-                if !state.dirty.load(Ordering::Relaxed) {
-                    return;
-                }
-                api.prevent_close();
-                let target = window.clone();
-                window
-                    .dialog()
-                    .message("You have unsaved changes. Close PaperPad and discard them?")
-                    .title("PaperPad")
-                    .kind(MessageDialogKind::Warning)
-                    .parent(window)
-                    .buttons(MessageDialogButtons::OkCancelCustom(
-                        "Discard and close".into(),
-                        "Cancel".into(),
-                    ))
-                    .show(move |discard| {
-                        if discard {
-                            let state = target.state::<AppState>();
-                            state.dirty.store(false, Ordering::Relaxed);
-                            commands::clear_recovery(&state);
-                            let _ = target.destroy();
-                        }
-                    });
-            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::open_document,
@@ -92,7 +62,41 @@ pub fn run() {
             commands::recovery_write,
             commands::recovery_read,
             commands::recovery_clear,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running PaperPad");
+        ]);
+    #[cfg(desktop)]
+    let builder = builder.on_window_event(close_guard);
+    builder.run(tauri::generate_context!()).expect("error while running PaperPad");
+}
+
+/// Asks before closing a window with unsaved changes. The frontend reports
+/// them through set_document_state, so the webview needs no window
+/// permissions. Desktop only: Android never sends CloseRequested (the system
+/// ends the app when it likes), so autosave and crash recovery cover it there.
+#[cfg(desktop)]
+fn close_guard(window: &tauri::Window, event: &tauri::WindowEvent) {
+    use std::sync::atomic::Ordering;
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+
+    let tauri::WindowEvent::CloseRequested { api, .. } = event else { return };
+    let state = window.state::<AppState>();
+    if !state.dirty.load(Ordering::Relaxed) {
+        return;
+    }
+    api.prevent_close();
+    let target = window.clone();
+    window
+        .dialog()
+        .message("You have unsaved changes. Close PaperPad and discard them?")
+        .title("PaperPad")
+        .kind(MessageDialogKind::Warning)
+        .parent(window)
+        .buttons(MessageDialogButtons::OkCancelCustom("Discard and close".into(), "Cancel".into()))
+        .show(move |discard| {
+            if discard {
+                let state = target.state::<AppState>();
+                state.dirty.store(false, Ordering::Relaxed);
+                commands::clear_recovery(&state);
+                let _ = target.destroy();
+            }
+        });
 }

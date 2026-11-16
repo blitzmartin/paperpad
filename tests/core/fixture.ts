@@ -1,5 +1,5 @@
 // A document that exercises every node and mark in the schema.
-import { schema } from "../src/editor/schema.ts";
+import { schema } from "../../src/editor/schema.ts";
 
 export const sampleDoc = () =>
   schema.nodeFromJSON({

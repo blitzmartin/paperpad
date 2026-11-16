@@ -60,7 +60,7 @@ Do not edit the version by hand. To add a file that holds it, add it to `scripts
 
 ## Release notes
 
-Keep them short. People open the page to pick a file, so lead with what is new, then how to download and open the app. Link to the README for the full feature list instead of copying it.
+Keep them short. People open the page to pick a file, so lead with what is new, then how to download and open the app. Link to the README for the features and to GUIDE.md for how they work, instead of copying them.
 
 Template:
 
@@ -71,7 +71,7 @@ One or two lines on what this release is about.
 
 - ...
 
-See the [README](https://github.com/blitzmartin/paperpad#readme) for every feature.
+See the [README](https://github.com/blitzmartin/paperpad#readme) for the features and the [guide](https://github.com/blitzmartin/paperpad/blob/main/GUIDE.md) for how they work.
 
 ## Download
 

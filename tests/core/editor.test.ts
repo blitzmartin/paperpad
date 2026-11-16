@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { TextSelection } from "prosemirror-state";
+import { EditorState, TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../../src/editor/actions.ts";
-import { currentBlockStyle, deleteRuleBefore, exitCodeBlock, exitCodeOnEmptyLine, pageNumbersOn, stats, togglePageNumbers, toggleQuote } from "../../src/editor/commands.ts";
+import { currentBlockStyle, deleteRuleBefore, exitCodeBlock, exitCodeOnEmptyLine, exitCodeOnTypedEmptyLine, pageNumbersOn, setBlockStyle, stats, togglePageNumbers, toggleQuote } from "../../src/editor/commands.ts";
 import { blockBreakPos, fitGapHeights, GAP, gapTarget, MARGIN, PAGE_H } from "../../src/editor/pages.ts";
 import { schema } from "../../src/editor/schema.ts";
 import { newState } from "../../src/editor/setup.ts";
@@ -111,6 +111,38 @@ test("leaving a code block at the end of the document adds a paragraph", () => {
   assert.ok(exitCodeOnEmptyLine(state, (tr) => (state = state.apply(tr))));
   assert.deepEqual(types(state), ["code_block", "paragraph"]);
   assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("a second typed newline at the end of a code block leaves it, as on Android", () => {
+  // Gboard's Enter is not a key press there: the newline arrives as typed text.
+  const doc = N.doc.create(null, [N.code_block.create(null, schema.text("a"))]);
+  let state = EditorState.create({ doc, plugins: [exitCodeOnTypedEmptyLine] });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  const type = () => (state = state.apply(state.tr.insertText("\n")));
+  type();
+  assert.equal(state.doc.child(0).textContent, "a\n", "the first newline stays in the block");
+  assert.equal(state.selection.$from.parent.type.name, "code_block");
+  type();
+  assert.equal(state.doc.child(0).textContent, "a", "both empty lines go");
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("an empty line typed in the middle of a code block stays", () => {
+  const doc = N.doc.create(null, [N.code_block.create(null, schema.text("a\n\nb"))]);
+  let state = EditorState.create({ doc, plugins: [exitCodeOnTypedEmptyLine] });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 3)));
+  state = state.apply(state.tr.insertText("\n"));
+  assert.equal(state.doc.child(0).textContent, "a\n\n\nb");
+  assert.deepEqual(types(state), ["code_block"]);
+});
+
+test("choosing Quote inside a quote does not nest another one", () => {
+  let state = newState(N.doc.create(null, [N.blockquote.create(null, p("q"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  assert.equal(setBlockStyle("quote")(state, (tr) => (state = state.apply(tr))), false);
+  assert.deepEqual(types(state), ["blockquote"]);
+  assert.equal(state.doc.child(0).firstChild!.type.name, "paragraph");
 });
 
 test("the quote toggle wraps once and unwraps the second time", () => {

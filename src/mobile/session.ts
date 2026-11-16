@@ -11,10 +11,12 @@
 // else) are what keep the user's work.
 
 import { keymap } from "prosemirror-keymap";
-import type { Node as PMNode } from "prosemirror-model";
+import { Fragment, type Node as PMNode } from "prosemirror-model";
+import { Plugin } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import * as cmd from "../editor/commands.ts";
 import { roomForImage } from "../editor/image.ts";
+import { schema } from "../editor/schema.ts";
 import { blankDoc, newState } from "../editor/setup.ts";
 import * as backend from "../io/backend.ts";
 import type { OpenedDoc } from "../io/backend.ts";
@@ -34,17 +36,31 @@ const MOBILE_FONT = "atkinson";
 
 const FORMAT_LABEL: Record<EditableFormat, string> = { html: "PaperPad", md: "Markdown", txt: "Plain text" };
 
-/**
- * Keys only the mobile shell adds, ahead of the shared keymap. Gboard has no
- * arrow keys, which desktop uses to leave a code block (exitCodeBlock), so
- * here Enter on an empty last line leaves it.
- */
-const mobileKeys = keymap({ Enter: cmd.exitCodeOnEmptyLine });
+const N = schema.nodes;
 
-/** The shared editor state (setup.ts) with the mobile keys. */
+/**
+ * Leaving a code block without arrow keys, which desktop uses for it
+ * (exitCodeBlock) and Gboard does not have: a second Enter on an empty last
+ * line leaves it. Gboard's Enter arrives as typed text (the plugin), a
+ * hardware keyboard's as a key press (the keymap).
+ */
+const leaveCodeBlock = [cmd.exitCodeOnTypedEmptyLine, keymap({ Enter: cmd.exitCodeOnEmptyLine })];
+
+/**
+ * A code block that ends the document gets an empty paragraph after it:
+ * without arrow keys, a tap below the block is the only way to write after it.
+ */
+const endsWithCode = (doc: PMNode) => doc.lastChild?.type === N.code_block;
+const paragraphAfterCode = new Plugin({
+  appendTransaction: (trs, _before, state) =>
+    trs.some((tr) => tr.docChanged) && endsWithCode(state.doc) ? state.tr.insert(state.doc.content.size, N.paragraph.create()) : null,
+});
+
+/** The shared editor state (setup.ts) with the mobile additions, ahead of the shared keymap. */
 const editorState = (doc: PMNode) => {
+  if (endsWithCode(doc)) doc = doc.copy(doc.content.append(Fragment.from(N.paragraph.create())));
   const state = newState(doc);
-  return state.reconfigure({ plugins: [mobileKeys, ...state.plugins] });
+  return state.reconfigure({ plugins: [...leaveCodeBlock, paragraphAfterCode, ...state.plugins] });
 };
 
 export type FileInfo = {

@@ -103,19 +103,6 @@ const blockStyle = (text: string, label: string, style: cmd.BlockStyle) =>
 
 const sep = () => h("span", { class: "tb-sep", role: "separator" });
 
-/** Code block on or off. Turning it on says how to leave it: there are no arrow keys. */
-const codeTool = tool(
-  icon("code"),
-  EDITOR_ACTIONS.codeBlock.label,
-  (state, dispatch) => {
-    const entering = cmd.currentBlockStyle(state) !== "code";
-    const done = cmd.toggleCodeBlock(state, dispatch);
-    if (done && dispatch && entering) notify("To leave the code block, press Enter on an empty last line", 5000);
-    return done;
-  },
-  EDITOR_ACTIONS.codeBlock.active,
-);
-
 // ---- main menu ----------------------------------------------------------------------------
 
 const menuButton = button(icon("menu"), "Menu", () => toggleMenu());
@@ -205,7 +192,7 @@ formatBar.append(
   blockStyle("H2", "Heading 2", "h2"),
   blockStyle("H3", "Heading 3", "h3"),
   tool("❝", "Quote", cmd.toggleQuote, (s) => cmd.currentBlockStyle(s) === "quote"),
-  codeTool,
+  action(A.codeBlock, "code"),
   sep(),
   action(A.bullets, "bullets"),
   action(A.numbers, "numbers"),

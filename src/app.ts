@@ -746,7 +746,8 @@ export function startApp() {
     BLOCK_STYLES.map((b) => ({
       label: b.label,
       keys: b.key ? [b.key] : undefined,
-      run: () => run(cmd.setBlockStyle(b.style)),
+      // Quote again takes the paragraph out of its quote, as the mobile toolbar does.
+      run: () => run(b.style === "quote" ? cmd.toggleQuote : cmd.setBlockStyle(b.style)),
       checked: () => cmd.currentBlockStyle(view.state) === b.style,
     }));
 

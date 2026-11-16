@@ -1,13 +1,20 @@
 /* Mobile shell (mobile.html): the desktop look, sized for touch.
  *
- * main.css comes first, unchanged: its tokens, themes, bevels, icons,
- * windows and every document rule (fonts, sizes, colors, styles, images) are
- * shared, so a document looks the same on both. Its desktop-only rules (menu
- * bar, desktop toolbar, page view, print) target classes this shell never uses.
- * Splitting main.css would change the order of the desktop rules, so it waits
- * until the mobile shell is settled (ANDROID.md, section 7). */
+ * The shared parts of the desktop stylesheet come first, in the order
+ * main.css imports them: tokens and themes, bevels, buttons and icons,
+ * windows and every document rule (fonts, sizes, colors, styles, images, page
+ * view), so a document looks the same on both. The desktop-only parts (menu
+ * bar, status bar, panels, dialogs, print) live in src/styles/desktop and are
+ * not imported. */
 
-@import "../styles/main.css";
+/* The fonts that come with the app. Must stay before every rule. */
+@import "../styles/fonts.css";
+@import "../styles/tokens.css";
+@import "../styles/base.css";
+@import "../styles/controls.css";
+@import "../styles/document.css";
+@import "../styles/windows.css";
+@import "../styles/theme-swatches.css";
 
 :root {
   /* Readable at arm's length on a tablet. */
@@ -156,24 +163,57 @@
 .m-workspace {
   padding: 12px 12px 24px;
 }
-/* A sheet as wide as the screen instead of an A4 page, at least as tall as it.
+/* Infinite view: a sheet as wide as the screen, at least as tall as it.
+ * Page view uses the A4 sheets of styles/document.css (.page.paged), scaled to fit in main.ts.
  * The editor fills the whole sheet, so a tap anywhere on it, even below the
  * last line, lands in the editor and opens the keyboard. (A percentage
  * min-height would not work here: the sheet's own height is not fixed.) */
-.m-page {
+.m-page:not(.paged) {
   width: 100%;
   min-height: 100%;
   display: flex;
   flex-direction: column;
   box-shadow: 4px 4px 0 var(--paper-edge);
 }
-.m-page .doc {
+.m-page:not(.paged) .doc {
   flex: 1;
   min-height: 0;
   padding: 20px 24px;
 }
 
 /* ---- dialogs and messages ----------------------------------------------------------- */
+
+/* Menu, Theme: the swatches of View, Options on desktop, as large touch buttons. */
+.m-themes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.m-theme {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--chrome);
+  box-shadow:
+    var(--raised),
+    0 0 0 1px var(--edge);
+  text-align: left;
+}
+.m-theme[aria-checked="true"] {
+  box-shadow:
+    var(--sunken),
+    0 0 0 2px var(--accent);
+  font-weight: 700;
+}
+.m-theme .theme-swatch i {
+  width: 12px;
+  height: 20px;
+}
+
 
 #modal-root .btn {
   min-height: var(--touch);

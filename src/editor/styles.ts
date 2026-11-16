@@ -153,12 +153,12 @@ export const exportColor = (color: string): string | null => findColor(colorKey(
 
 /**
  * CSS custom properties that render a document's styles in the editor
- * (main.css reads them as --s-<style>-<property>). Set through the CSSOM,
+ * (styles/document.css reads them as --s-<style>-<property>). Set through the CSSOM,
  * which the CSP allows. The soft color follows the theme.
  */
 export function styleVars(attrs: { font?: unknown; styles?: unknown }): [string, string][] {
   const out: [string, string][] = [];
-  // The automatic rule color is the text color, a little lighter (--rule-auto in main.css).
+  // The automatic rule color is the text color, a little lighter (--rule-auto in styles/document.css).
   const rule = resolveRule(attrs);
   out.push(
     ["--s-rule-color", rule.color === AUTO_COLOR ? "var(--rule-auto)" : rule.color === SOFT_COLOR ? "var(--soft)" : findColor(rule.color)!.hex],

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { COLORS, DEFAULT_FONT, findFont, FONTS, HIGHLIGHTS, NEW_DOCUMENT_FONT, SIZES } from "../../src/editor/palette.ts";
 
-const css = readFileSync(new URL("../../src/styles/main.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../../src/styles/document.css", import.meta.url), "utf8");
 
 test("every palette entry has a CSS class (run scripts/palette-css.ts if this fails)", () => {
   const missing = [

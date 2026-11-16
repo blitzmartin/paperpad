@@ -1,0 +1,181 @@
+/* Windows, dialogs and menus.
+ * Shared by both shells (main.css and src/mobile/mobile.css). Part of main.css, in its order: see the note there. */
+
+/* ---- windows: menus, dialogs, popups ---------------------------------------------------- */
+
+.window {
+  background: var(--chrome);
+  color: var(--text);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  box-shadow:
+    var(--raised),
+    4px 4px 0 rgba(0, 0, 0, 0.28);
+}
+
+/* The point a context menu opens from (openMenuAt in menu.ts). */
+.menu-anchor {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.menu {
+  z-index: 50;
+  min-width: 210px;
+  padding: 3px;
+  display: flex;
+  flex-direction: column;
+}
+.menu-item {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px 5px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  text-align: left;
+  cursor: default;
+}
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--accent);
+  color: var(--accent-ink);
+  outline: none;
+}
+.menu-item:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+}
+.menu-item .check {
+  text-align: center;
+}
+.menu-item .shortcut {
+  padding-left: 24px;
+  color: var(--muted);
+}
+.menu-item:hover:not(:disabled) .shortcut,
+.menu-item:focus-visible .shortcut {
+  color: inherit;
+}
+.menu-sep {
+  height: 0;
+  margin: 3px 4px;
+  border-top: 1px solid var(--lo);
+  border-bottom: 1px solid var(--hi);
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 4px 8px;
+  margin: 2px 2px 0;
+  border-radius: 2px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.titlebar .close {
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  line-height: 1;
+  background: var(--chrome);
+  color: var(--text);
+  box-shadow: var(--raised);
+}
+
+.btn {
+  min-width: 76px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--chrome);
+  box-shadow:
+    var(--raised),
+    0 0 0 1px var(--edge);
+  cursor: default;
+}
+.btn:active {
+  box-shadow:
+    var(--sunken),
+    0 0 0 1px var(--edge);
+}
+.btn.primary {
+  box-shadow:
+    var(--raised),
+    0 0 0 2px var(--edge);
+}
+
+.field {
+  padding: 0 6px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 28, 25, 0.35);
+}
+.modal {
+  width: min(420px, calc(100vw - 32px));
+}
+.modal-wide {
+  width: min(600px, calc(100vw - 32px));
+}
+.modal-body {
+  padding: 14px 16px 6px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.modal-body p {
+  margin: 0 0 8px;
+}
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 14px 14px;
+}
+.muted {
+  color: var(--muted);
+}
+.about {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.about img {
+  flex: none;
+  image-rendering: auto;
+}
+table.keys {
+  border-collapse: collapse;
+  width: 100%;
+}
+table.keys td {
+  padding: 3px 6px 3px 0;
+  vertical-align: top;
+}
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font: inherit;
+  white-space: nowrap;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow:
+    inset -1px -1px 0 var(--lo),
+    0 0 0 1px var(--lo);
+}

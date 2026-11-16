@@ -9,6 +9,7 @@ import { toRtf } from "../../src/export/rtf.ts";
 const root = new URL("../../", import.meta.url);
 const css = readFileSync(new URL("src/styles/fonts.css", root), "utf8");
 const main = readFileSync(new URL("src/styles/main.css", root), "utf8");
+const mobile = readFileSync(new URL("src/mobile/mobile.css", root), "utf8");
 
 test("every bundled font has its four styles, its files and its license", () => {
   const bundled = FONTS.filter((f) => f.bundled);
@@ -28,7 +29,11 @@ test("every bundled font has its four styles, its files and its license", () => 
 });
 
 test("the fonts are loaded before any other rule and only from the app itself", () => {
-  assert.ok(main.indexOf('@import "./fonts.css";') < main.indexOf("{"), "@import must come first");
+  // Both entry stylesheets: the fonts import comes before every other import and rule.
+  for (const [name, sheet] of [["main.css", main], ["mobile.css", mobile]] as const) {
+    const code = sheet.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    assert.match(code, /^@import "(\.\/|\.\.\/styles\/)fonts\.css";/, `${name}: @import of fonts.css must come first`);
+  }
   assert.doesNotMatch(css, /url\("?(https?:|\/\/)/);
 });
 

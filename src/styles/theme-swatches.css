@@ -1,0 +1,86 @@
+/* Theme previews, used by View > Options and the mobile theme picker.
+ * Shared by both shells (main.css and src/mobile/mobile.css). Part of main.css, in its order: see the note there. */
+
+/* Each theme's desk, chrome, paper and accent, in its light version. */
+.theme-swatch {
+  display: inline-flex;
+  border: 1px solid var(--lo);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.theme-swatch i {
+  width: 10px;
+  height: 14px;
+}
+.tsw-sage i:nth-child(1) {
+  background: #7d9891;
+}
+.tsw-sage i:nth-child(2) {
+  background: #d6dbd2;
+}
+.tsw-sage i:nth-child(3) {
+  background: #fffdf8;
+}
+.tsw-sage i:nth-child(4) {
+  background: #2f5d50;
+}
+.tsw-gray i:nth-child(1) {
+  background: #8f8f8f;
+}
+.tsw-gray i:nth-child(2) {
+  background: #d9d9d9;
+}
+.tsw-gray i:nth-child(3) {
+  background: #fdfdfd;
+}
+.tsw-gray i:nth-child(4) {
+  background: #555555;
+}
+.tsw-sand i:nth-child(1) {
+  background: #b4a479;
+}
+.tsw-sand i:nth-child(2) {
+  background: #e5dcbf;
+}
+.tsw-sand i:nth-child(3) {
+  background: #fffdef;
+}
+.tsw-sand i:nth-child(4) {
+  background: #9a5a3c;
+}
+.tsw-slate i:nth-child(1) {
+  background: #7f8fa3;
+}
+.tsw-slate i:nth-child(2) {
+  background: #d3d9e0;
+}
+.tsw-slate i:nth-child(3) {
+  background: #fdfdff;
+}
+.tsw-slate i:nth-child(4) {
+  background: #3b5a85;
+}
+.tsw-rose i:nth-child(1) {
+  background: #b0939a;
+}
+.tsw-rose i:nth-child(2) {
+  background: #e6d6d9;
+}
+.tsw-rose i:nth-child(3) {
+  background: #fffafb;
+}
+.tsw-rose i:nth-child(4) {
+  background: #8a3a4f;
+}
+.tsw-lilac i:nth-child(1) {
+  background: #998fb0;
+}
+.tsw-lilac i:nth-child(2) {
+  background: #dcd6e6;
+}
+.tsw-lilac i:nth-child(3) {
+  background: #fdfbff;
+}
+.tsw-lilac i:nth-child(4) {
+  background: #6a4f9a;
+}

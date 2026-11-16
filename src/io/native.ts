@@ -45,7 +45,7 @@ function standaloneCss(doc: PMNode): string {
     `${a} p{margin:${st.normal.before}pt 0 ${st.normal.after}pt;${deco(st.normal)}}`,
     `${a} li>p{margin:0 0 .2em}`,
     ...([1, 2, 3] as const).map((l) => `${a} h${l}{${styleCss(st[`h${l}`])};margin:${st[`h${l}`].before}pt 0 ${st[`h${l}`].after}pt;${deco(st[`h${l}`])}}`),
-    // As in main.css: the space after the last paragraph goes outside the border.
+    // As in styles/document.css: the space after the last paragraph goes outside the border.
     `${a} blockquote{${styleCss(st.quote)};margin:${st.quote.before}pt 0 ${st.quote.after}pt;padding:.1em 0 .1em 1em;border-left:3px solid #999}`,
     `${a} blockquote p{margin:0 0 ${st.quote.after}pt;${deco(st.quote)}}`,
     `${a} blockquote>:last-child{margin-bottom:0}`,

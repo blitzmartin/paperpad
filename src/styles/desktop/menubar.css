@@ -1,0 +1,25 @@
+/* Desktop menu bar.
+ * Desktop only: imported by main.css. Part of main.css, in its order: see the note there. */
+
+.menubar {
+  display: flex;
+  gap: 1px;
+  padding: 2px 4px 0;
+}
+
+.menubar-item {
+  border: 0;
+  background: none;
+  padding: 4px 9px;
+  border-radius: 3px;
+  cursor: default;
+}
+.menubar-item:hover,
+.menubar-item.open {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.menubar-item u {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}

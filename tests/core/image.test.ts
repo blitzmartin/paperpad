@@ -73,7 +73,7 @@ test("display sizes keep the aspect ratio and stay inside the column and the pag
 });
 
 test("every image size has a CSS class", () => {
-  const css = readFileSync(new URL("../../src/styles/main.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../../src/styles/document.css", import.meta.url), "utf8");
   const missing = IMAGE_SIZES.filter((s) => s.pct !== null && !new RegExp(`\\.doc figure\\.img-${s.key} img \\{\\s*width: ${s.pct}%;`).test(css));
   assert.deepEqual(missing.map((s) => s.key), []);
 });

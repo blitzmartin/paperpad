@@ -3,7 +3,8 @@
 // - Top bar: main menu, document name, undo, redo and save.
 // - Formatting bar at the bottom: with the viewport's interactive-widget
 //   setting it sits right above the on-screen keyboard, where the thumbs are.
-// - Continuous view only: an A4 page does not fit a tablet held upright.
+// - Continuous view by default. Page view (menu) shows A4 sheets as on
+//   desktop, scaled down to fit when the tablet is narrower than A4.
 //
 // Touch rules (ANDROID.md, "Requisiti touch"): buttons are at least 48 px and
 // never take the focus from the editor, so the keyboard stays open; no native
@@ -14,21 +15,25 @@ import "prosemirror-view/style/prosemirror.css";
 import { type Command, type EditorState, Selection } from "prosemirror-state";
 import { EDITOR_ACTIONS, type EditorAction } from "../editor/actions.ts";
 import * as cmd from "../editor/commands.ts";
-import { setPageView } from "../editor/pages.ts";
+import { PAGE_W, pageViewOn, relayoutPages, setPageView } from "../editor/pages.ts";
 import { createView } from "../editor/setup.ts";
 import { inApp } from "../io/backend.ts";
 import { VERSION } from "../version.ts";
 import { h } from "../ui-kit/dom.ts";
 import { icon, type IconName } from "../ui-kit/icons.ts";
-import { alertBox, isModalOpen } from "../ui-kit/modal.ts";
-import { currentTheme, initTheme, toggleTheme } from "../ui-kit/theme.ts";
+import { alertBox, isModalOpen, showModal } from "../ui-kit/modal.ts";
+import { currentPalette, currentTheme, initTheme, loadPref, onThemeChange, PALETTES, setPalette, storePref, toggleTheme } from "../ui-kit/theme.ts";
 import { createSession, type Session } from "./session.ts";
 
+/** Page view or infinite view, as on desktop (same key, in this app's own storage). */
+const LAYOUT_KEY = "paperpad.layout";
+
 initTheme();
-setPageView(false);
+setPageView(loadPref(LAYOUT_KEY) === "pages");
 
 const topBar = document.getElementById("topbar")!;
 const formatBar = document.getElementById("format")!;
+const workspace = document.getElementById("workspace")!;
 const page = document.getElementById("page")!;
 
 // ---- messages ---------------------------------------------------------------------
@@ -119,9 +124,12 @@ const closeMenu = () => {
   menuButton.setAttribute("aria-expanded", "false");
 };
 
+/** Menu items with a check mark, updated each time the menu opens. */
+const checks: (() => void)[] = [];
+
 const toggleMenu = () => {
   if (!menu.hidden) return closeMenu();
-  darkItem.setAttribute("aria-checked", String(currentTheme() === "dark"));
+  for (const check of checks) check();
   menu.hidden = backdrop.hidden = false;
   menuButton.setAttribute("aria-expanded", "true");
 };
@@ -134,6 +142,42 @@ const menuItem = (name: IconName | null, label: string, onTap: () => void, role 
     onTap();
   });
   return item;
+};
+
+const checkItem = (name: IconName | null, label: string, onTap: () => void, checked: () => boolean, role = "menuitemradio") => {
+  const item = menuItem(name, label, onTap, role);
+  checks.push(() => item.setAttribute("aria-checked", String(checked())));
+  return item;
+};
+
+/**
+ * The six desktop themes, with the same swatches as View, Options (styles/theme-swatches.css).
+ * A tap applies a theme at once, so the page behind shows it.
+ */
+const chooseTheme = () => {
+  const choices = PALETTES.map((p) => {
+    const choice = h(
+      "button",
+      { class: "m-theme", type: "button", role: "radio" },
+      h("span", { class: `theme-swatch tsw-${p.id}`, "aria-hidden": "true" }, h("i"), h("i"), h("i"), h("i")),
+      h("span", { text: p.label }),
+    );
+    choice.addEventListener("click", () => {
+      setPalette(p.id);
+      mark();
+    });
+    return { id: p.id, choice };
+  });
+  const mark = () => {
+    for (const { id, choice } of choices) choice.setAttribute("aria-checked", String(id === currentPalette()));
+  };
+  mark();
+  void showModal({
+    title: "Theme",
+    body: h("div", { class: "m-themes", role: "radiogroup", "aria-label": "Theme" }, ...choices.map((c) => c.choice)),
+    buttons: [{ id: "done", label: "Done", primary: true }],
+    cancelId: "done",
+  });
 };
 
 const about = () =>
@@ -155,7 +199,6 @@ const about = () =>
     ),
   );
 
-const darkItem = menuItem("moon", "Dark mode", toggleTheme, "menuitemcheckbox");
 menu.append(
   menuItem("new", "New", () => void S.newDocument()),
   menuItem("open", "Open...", () => void S.open()),
@@ -164,7 +207,9 @@ menu.append(
   h("hr", { class: "m-menu-sep" }),
   menuItem("image", "Add image...", () => void S.addImage()),
   h("hr", { class: "m-menu-sep" }),
-  darkItem,
+  checkItem(null, "Page view", () => setLayout(true), pageViewOn),
+  checkItem(null, "Infinite view", () => setLayout(false), () => !pageViewOn()),
+  menuItem("color", "Theme...", chooseTheme),
   menuItem(null, "About PaperPad", about),
 );
 
@@ -172,11 +217,29 @@ menu.append(
 
 const A = EDITOR_ACTIONS;
 
+// Page numbers show at the bottom of each sheet, so the button is there in
+// page view only, as on desktop. In infinite view they stay in the file as
+// they are (desktop turns them off there, see ANDROID.md).
+const pageNumbers = action(A.pageNumbers, "pageNumbers");
+updaters.push(() => (pageNumbers.hidden = !pageViewOn()));
+
+/** Light or dark, as on the desktop toolbar: the icon shows the mode a tap switches to. */
+const themeButton = button(icon("moon"), "Dark mode", toggleTheme);
+const showTheme = () => {
+  const dark = currentTheme() === "dark";
+  themeButton.replaceChildren(icon(dark ? "sun" : "moon"));
+  themeButton.setAttribute("aria-label", dark ? "Light mode" : "Dark mode");
+  themeButton.title = dark ? "Light mode" : "Dark mode";
+};
+onThemeChange(showTheme);
+showTheme();
+
 topBar.append(
   menuButton,
   h("div", { class: "m-title" }, title, dirtyMark),
   action(A.undo, "undo"),
   action(A.redo, "redo"),
+  themeButton,
   button(icon("save"), "Save", () => void S.save()),
 );
 
@@ -191,7 +254,7 @@ formatBar.append(
   blockStyle("H1", "Heading 1", "h1"),
   blockStyle("H2", "Heading 2", "h2"),
   blockStyle("H3", "Heading 3", "h3"),
-  tool("❝", "Quote", cmd.toggleQuote, (s) => cmd.currentBlockStyle(s) === "quote"),
+  action(A.quote, "quote"),
   action(A.codeBlock, "code"),
   sep(),
   action(A.bullets, "bullets"),
@@ -205,11 +268,46 @@ formatBar.append(
   sep(),
   action(A.rule, "rule"),
   button(icon("image"), "Add image", () => void S.addImage()),
+  pageNumbers,
 );
+
+// ---- page view ------------------------------------------------------------------------------
+
+/** The workspace padding and the sheet's drop shadow (mobile.css, styles/document.css). */
+const AROUND_SHEET = 2 * 12 + 8;
+let zoom = 1;
+
+/**
+ * Scales the A4 sheet down when the tablet is narrower than it (a tablet held
+ * upright usually is, by a little). The page layout measures in unzoomed page
+ * pixels, so it only needs a new layout, as on desktop after a zoom.
+ */
+const fitPage = () => {
+  const next = pageViewOn() ? Math.min(1, (workspace.clientWidth - AROUND_SHEET) / PAGE_W) : 1;
+  if (next === zoom) return;
+  zoom = next;
+  if (zoom === 1) page.style.removeProperty("zoom");
+  else page.style.setProperty("zoom", String(zoom));
+  relayoutPages();
+};
+// Turning the tablet changes the width. The keyboard changes only the height,
+// which fitPage ignores.
+new ResizeObserver(fitPage).observe(workspace);
+
+const setLayout = (pages: boolean) => {
+  setPageView(pages);
+  storePref(LAYOUT_KEY, pages ? "pages" : "infinite");
+  fitPage();
+  refresh(view.state);
+};
+
+// Pages are measured with the document fonts, so measure again once they load.
+void document.fonts?.ready.then(relayoutPages);
+document.fonts?.addEventListener("loadingdone", relayoutPages);
 
 // The desk around the sheet is outside the editor: a tap there puts the caret
 // at the end of the document and opens the keyboard, as a tap on the sheet does.
-document.getElementById("workspace")!.addEventListener("click", (e) => {
+workspace.addEventListener("click", (e) => {
   if (view.dom.contains(e.target as Node)) return;
   view.dispatch(view.state.tr.setSelection(Selection.atEnd(view.state.doc)));
   view.focus();

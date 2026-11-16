@@ -21,7 +21,7 @@ For Windows, macOS, Linux and Android tablets.
 - Six themes, each light and dark, and a choice of caret feel.
 - Fonts that look the same everywhere: Atkinson Hyperlegible, Inter, Literata and JetBrains Mono come with the app.
 
-**On Android tablets:** open, edit and save documents from the tablet or any cloud app in the system file picker, with a touch toolbar above the keyboard, images, autosave always on and the same file format as desktop. Export, print, page view and the desktop settings are not there yet.
+**On Android tablets:** open, edit and save documents from the tablet or any cloud app in the system file picker, with a touch toolbar above the keyboard, images, page view with page numbers, autosave always on and the same file format as desktop. Export, print and the desktop settings are not there yet.
 
 The [guide](GUIDE.md) covers sync between devices, conflicts, version history, styles and more.
 

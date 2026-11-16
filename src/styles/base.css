@@ -1,0 +1,47 @@
+/* Page defaults and the chrome shared by both shells.
+ * Shared by both shells (main.css and src/mobile/mobile.css). Part of main.css, in its order: see the note there. */
+
+/* ---- base -------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--chrome);
+  color: var(--text);
+  font: var(--ui-size)/1.3 var(--ui-font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px dotted var(--accent);
+  outline-offset: 1px;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+
+/* ---- menu bar ---------------------------------------------------------------- */
+
+.chrome {
+  background: var(--chrome);
+  border-bottom: 1px solid var(--lo);
+  box-shadow: 0 1px 0 var(--hi) inset;
+}

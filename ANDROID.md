@@ -67,7 +67,6 @@ Il backend dà per scontati i percorsi su disco in quattro punti: lettura (`fs::
 | Cartella sincronizzata come su desktop con Dropbox e OneDrive | Su Android non esiste una cartella locale mirror, solo il provider. | Mai per questi provider. Con Syncthing sì, nella v2. |
 | Scrittura atomica sui file nel cloud | Limite dello Storage Access Framework. | No, compensata dallo storico. |
 | Dialog "unsaved changes" alla chiusura | `CloseRequested` non arriva mai su Android. | Non serve: lo sostituiscono autosave e recovery. |
-| Vista pagina | Un A4 non ci sta in verticale. La shell mobile usa solo la vista continua. | Forse, con una scala della sola superficie pagina. |
 | Controllo ortografico come opzione | Lo fa Gboard, non la WebView. | No. |
 | Fedeltà dei font di Windows (Arial, Times, Courier) | I font mancano. | v2 con Liberation (metriche compatibili), se serve. |
 
@@ -85,6 +84,7 @@ Se lo spike conferma che `tauri-plugin-fs` legge e scrive su `content://` da Rus
 src/
   editor/ io/ export/   core condiviso
   ui-kit/               core condiviso: dialog, DOM, icone, tema, immagini, impostazioni dello storico
+  styles/               CSS condiviso (main.css è l'entry desktop), styles/desktop/ solo desktop
   app.ts, ui/           shell desktop
   mobile/               shell mobile: main.ts (barre e menu), session.ts (documento), mobile.css
 index.html              entry desktop
@@ -235,12 +235,12 @@ Una UI propria, pensata per il touch, sopra il core condiviso. Non è un adattam
 
 ### Contenuto
 
-- **Barra superiore:** menu (hamburger), nome del documento con `*` per le modifiche non salvate, annulla, ripeti, salva.
-- **Menu:** Nuovo, Apri, Salva, Salva con nome, Aggiungi immagine, Dark mode, About.
+- **Barra superiore:** menu (hamburger), nome del documento con `*` per le modifiche non salvate, annulla, ripeti, chiaro/scuro, salva.
+- **Menu:** Nuovo, Apri, Salva, Salva con nome, Aggiungi immagine, Vista pagina o continua, Tema (i sei temi del desktop, con le stesse anteprime), About.
 - **Toolbar di formattazione in basso**, subito sopra la tastiera, scorrevole in orizzontale: grassetto, corsivo, sottolineato, barrato, togli formattazione, Normale, titoli 1-3, citazione, blocco di codice, elenchi, rientri, allineamento, riga orizzontale, immagine. L'app è disegnata fino ai bordi (`enableEdgeToEdge`) e in questa modalità Android non la ridimensiona per la tastiera: lo fa `MainActivity.kt`, che riduce la WebView dell'altezza della tastiera. `interactive-widget=resizes-content` da solo non basta nella WebView.
 - **Tocco per scrivere:** l'editor riempie il foglio, e un tocco intorno al foglio porta il cursore in fondo al documento.
 - **Blocco di codice senza frecce:** Gboard non ha le frecce, che sul desktop servono a uscire dal blocco. Due Invio alla fine del blocco ne escono (`exitCodeOnTypedEmptyLine`, perché su Chrome per Android ProseMirror non riceve Invio come tasto, ma come testo). Un blocco di codice alla fine del documento ha sempre un paragrafo vuoto dopo, dove toccare. Usa i comandi di `src/editor/commands.ts` e `src/editor/actions.ts`.
-- **Editor in vista continua.** Lo stesso `createView` del desktop con la vista pagina spenta: `pagesPlugin` resta ma non disegna nulla.
+- **Vista continua o vista pagina**, dal menu, ricordata come sul desktop (`paperpad.layout`). La vista pagina usa gli stessi fogli A4 del desktop (`pagesPlugin`, `.page.paged`) e uno zoom che li fa stare in larghezza quando il tablet è più stretto di un A4 (in verticale lo è di poco), ricalcolato quando si ruota il tablet. Il pulsante dei numeri di pagina c'è solo in vista pagina. In vista continua i numeri di pagina restano nel file come sono: il desktop invece li toglie, perché lì quella vista non ha il pulsante.
 - **Autosave sempre attivo** per i file HTML già salvati, 15 secondi dopo la prima modifica e subito quando l'app va in background (`visibilitychange`). Recovery sempre attivo. Niente opzioni.
 - **Reload** dei file cambiati su un altro dispositivo quando l'app torna in primo piano.
 - **Dialog dei conflitti** con "Keep both" che apre Salva con nome.
@@ -265,7 +265,7 @@ Tutto quello che il documento contiene e la shell non sa modificare (stili perso
 Arial, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New e Comic Sans MS non esistono su Android. Un documento creato su Windows si aprirebbe con Roboto o Noto.
 
 - **Default per i nuovi documenti su mobile:** uno dei font già inclusi (Atkinson Hyperlegible, Inter o Literata). Gli stack di fallback restano nei documenti, quindi un file riaperto su desktop torna identico.
-- **v2, font con le stesse metriche** solo per i casi più comuni nei documenti importati: Liberation Sans, Serif e Mono al posto di Arial, Times New Roman e Courier New. Costa qualche centinaio di KB di woff2. Va controllato con `tests/fonts.test.ts`, e il README va aggiornato con le licenze. Senza vista pagina su mobile, la differenza si vede nell'aspetto del testo e non nella paginazione.
+- **v2, font con le stesse metriche** solo per i casi più comuni nei documenti importati: Liberation Sans, Serif e Mono al posto di Arial, Times New Roman e Courier New. Costa qualche centinaio di KB di woff2. Va controllato con `tests/fonts.test.ts`, e il README va aggiornato con le licenze. Anche su mobile la differenza tocca la paginazione, in vista pagina.
 
 ## 6. Build locale e distribuzione in sideload
 
@@ -339,7 +339,7 @@ Il percorso esatto dell'APK sotto `src-tauri/gen/android/app/build/outputs/apk/`
    - i moduli di sole impostazioni di `src/ui` che servono anche al mobile, per esempio `autosave.ts`, `history.ts` e la lettura delle preferenze in `theme.ts`.
 2. **Spike (1-3 giorni).** `tauri android init`, esecuzione su emulatore tablet e su un tablet reale con una shell mobile minima. Verificare: lettura e scrittura su `content://` da Rust, nome del file dall'URI, salvataggio con il dialog su Android, IME con Gboard, aggiornamento dei file letti dai provider cloud. Il resto del piano dipende da questi risultati.
 3. **Backend v1.** Astrazione `Location`, I/O su URI, adattamento di `archive.rs` e di `save_conflict_copy`, moduli `#[cfg(mobile)]`, capability Android, Manifest senza `INTERNET`.
-4. **Shell mobile v1 (in test).** Vedi [Shell mobile](#4-shell-mobile). `mobile.html`, `src/mobile/`, `vite.mobile.config.ts` (porta 1421, output `dist-mobile`), `tsconfig.mobile.json`, `src-tauri/tauri.android.conf.json` (finestra su `mobile.html`, `devCsp` sulla porta 1421), script `dev:mobile`, `build:mobile`, `typecheck:mobile`. I moduli UI condivisi sono passati in `src/ui-kit/`. Il CSS del documento è ancora in `main.css`: `mobile.css` lo importa intero.
+4. **Shell mobile v1 (in test).** Vedi [Shell mobile](#4-shell-mobile). `mobile.html`, `src/mobile/`, `vite.mobile.config.ts` (porta 1421, output `dist-mobile`), `tsconfig.mobile.json`, `src-tauri/tauri.android.conf.json` (finestra su `mobile.html`, `devCsp` sulla porta 1421), script `dev:mobile`, `build:mobile`, `typecheck:mobile`. I moduli UI condivisi sono passati in `src/ui-kit/`. Il CSS è diviso in `src/styles/` (condiviso: token e temi, base, pulsanti e icone, documento, finestre, anteprime dei temi) e `src/styles/desktop/` (menubar, status bar, pannelli, dialog, stampa). `main.css` li importa tutti nell'ordine originale, e il CSS della build desktop è risultato identico byte per byte a quello di prima. `mobile.css` importa solo quelli condivisi.
 5. **Build e distribuzione.** Keystore, `scripts/android-release.sh`, `android-check.yml`, aggiornamento di `RELEASE.md` e del README, checklist di test manuale su tablet reale.
 6. **v2.** Plugin di stampa, cartella PaperPad con `ACTION_OPEN_DOCUMENT_TREE`, recenti persistenti, inserimento di immagini e storico versioni se non già nella v1, font con metriche compatibili, intent filter "Apri con".
 
@@ -391,9 +391,6 @@ L'I/O su `content://` passa ora per `android_io.rs` e il plugin Kotlin (vedi [Fi
 
 | Tema | Note |
 |---|---|
-| Icona dell'app | L'app Android ha ancora l'icona di Tauri. Generare le icone Android da quella desktop (`npm run tauri icon <png sorgente>` aggiorna anche `gen/android/app/src/main/res/mipmap-*`) e controllare l'icona adattiva (sfondo e area sicura). |
 | Tasto indietro di Android | Oggi chiude l'app anche con un dialog o il menu aperti. Con `onBackButtonPress` di `@tauri-apps/api/app` si chiude prima il dialog. Richiede `core:app:allow-register-listener` in `capabilities/android.json`. |
 | Storico versioni nella shell mobile | Il backend archivia già. Manca la UI touch: elenco, anteprima, ripristino. |
-| Scelta del tema colori | Su mobile solo Dark mode. Il tema (Sage, Slate...) usa il default. |
 | Logica dei file in comune | `src/mobile/session.ts` e la parte file di `src/app.ts` applicano le stesse regole: riunirle in un modulo del core con i test, quando la shell mobile è stabile. |
-| CSS del documento nel core | Separare da `main.css` le regole del documento, così `mobile.css` non importa anche quelle della UI desktop. Aggiornare `tests/core/fonts.test.ts` e `tests/core/palette.test.ts`. |

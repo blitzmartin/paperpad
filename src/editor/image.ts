@@ -18,7 +18,7 @@ export interface ImageSizeDef {
   pct: number | null;
 }
 
-/** The fixed set of image sizes. Each key has an `img-<key>` class in main.css. */
+/** The fixed set of image sizes. Each key has an `img-<key>` class in styles/document.css. */
 export const IMAGE_SIZES: readonly ImageSizeDef[] = [
   { key: "original", label: "Original size", pct: null },
   { key: "small", label: "Small", pct: 25 },

@@ -61,7 +61,7 @@ PNG, JPEG, GIF, WebP and BMP, from the toolbar, Format, Add image, Ctrl+Shift+G,
 
 ## Page view and page numbers
 
-Page view (View menu) shows A4 sheets with the print margins and page numbers from the toolbar, which also appear in print, PDF, Word and RTF. Infinite view is one long sheet without page numbers: a document saved from it loses them. Android has the continuous view only and keeps page numbers in the file.
+Page view (View menu) shows A4 sheets with the print margins and page numbers from the toolbar, which also appear in print, PDF, Word and RTF. Infinite view is one long sheet without page numbers: a document saved from it loses them. On Android, page view and infinite view are in the menu. In page view the sheet is scaled down when the tablet is narrower than A4, and the page numbers button appears. In infinite view the page numbers stay in the file as they are.
 
 ## Writing feel
 

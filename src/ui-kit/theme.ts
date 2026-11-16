@@ -25,7 +25,7 @@ export function storePref(key: string, value: string) {
 
 // ---- theme ------------------------------------------------------------------------
 
-/** Color themes. Each has a light and a dark version in main.css. */
+/** Color themes. Each has a light and a dark version in styles/tokens.css. */
 export const PALETTES = [
   { id: "sage", label: "Sage" },
   { id: "gray", label: "Gray" },
@@ -35,7 +35,7 @@ export const PALETTES = [
   { id: "lilac", label: "Lilac" },
 ] as const;
 export type PaletteId = (typeof PALETTES)[number]["id"];
-/** Color theme until the user picks one. The unthemed :root rules in main.css are Sage; other palettes override them. */
+/** Color theme until the user picks one. The unthemed :root rules in styles/tokens.css are Sage; other palettes override them. */
 export const DEFAULT_PALETTE: PaletteId = "slate";
 
 const THEME_KEY = "paperpad.theme";

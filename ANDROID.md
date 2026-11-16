@@ -221,7 +221,7 @@ Tutto questo sta nella shell mobile. La shell desktop non cambia.
 
 ### Permessi e Manifest
 
-- Il template Android di Tauri include il permesso `INTERNET`, che serve al dev server. Nel Manifest di release va tolto: è coerente con "no network" e chiunque può verificarlo con `aapt dump permissions`.
+- Il template Android di Tauri include il permesso `INTERNET`, che serve al dev server. Le build release lo tolgono con `gen/android/app/src/release/AndroidManifest.xml` (`tools:node="remove"`): è coerente con "no network" e chiunque può verificarlo con `aapt dump permissions`. Nel Manifest unito resta solo `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, un permesso di firma interno che AndroidX aggiunge per i propri receiver: non viene mai chiesto all'utente.
 - `capabilities/android.json` concede solo i comandi della shell mobile, senza `core:webview:allow-print` e senza i comandi della cartella.
 - In un secondo momento: intent filter per "Apri con PaperPad" su `.html`, `.md` e `.txt` dal file manager.
 

@@ -129,6 +129,11 @@ const checks: (() => void)[] = [];
 
 const toggleMenu = () => {
   if (!menu.hidden) return closeMenu();
+  // Chrome on Android shows the keyboard after any tap while an editable element
+  // has the focus, even with the keyboard closed. No menu item needs it, so the
+  // editor lets the focus go: this also keeps a dialog from handing it back on
+  // close (ui-kit/modal.ts). A tap on the page brings the caret back.
+  view.dom.blur();
   for (const check of checks) check();
   menu.hidden = backdrop.hidden = false;
   menuButton.setAttribute("aria-expanded", "true");

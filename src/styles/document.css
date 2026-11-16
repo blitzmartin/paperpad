@@ -128,7 +128,7 @@
   text-decoration: var(--s-code-deco, none);
   padding: 0.6em 0.8em;
   white-space: pre-wrap;
-  background: var(--chrome-2);
+  background: var(--code-bg);
   border-radius: 3px;
 }
 /* Code inside a line uses the Code style's font. */

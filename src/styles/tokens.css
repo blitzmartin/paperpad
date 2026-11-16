@@ -25,6 +25,9 @@
   --ink: #1d211f;
   --paper-edge: #2a312d;
   --selection: #bfe0cf;
+  /* Code block background: the panel color in light themes, a step
+   * lighter than the paper in dark ones, where the panel color is too close to it. */
+  --code-bg: var(--chrome-2);
 
   --icon-paper: #fffdf8;
   --icon-blue: #3d73c9;
@@ -61,6 +64,7 @@
     --ink: #e4e8e1;
     --paper-edge: #050706;
     --selection: #2f5d50;
+    --code-bg: #353a38;
     --icon-paper: #dfe5dd;
     --icon-silver: #7d8782;
     color-scheme: dark;
@@ -83,6 +87,7 @@
   --ink: #e4e8e1;
   --paper-edge: #050706;
   --selection: #2f5d50;
+  --code-bg: #353a38;
   --icon-paper: #dfe5dd;
   --icon-silver: #7d8782;
   color-scheme: dark;
@@ -134,6 +139,7 @@
   --ink: #e4e4e4;
   --paper-edge: #070707;
   --selection: #4a4a4a;
+  --code-bg: #373737;
   --icon-paper: #dedede;
   --icon-blue: #a6a6a6;
   --icon-yellow: #cfcfcf;
@@ -181,6 +187,7 @@
   --ink: #ece5db;
   --paper-edge: #080605;
   --selection: #5c4434;
+  --code-bg: #3b3633;
   --icon-paper: #e6dfd4;
   --icon-silver: #8a8178;
   color-scheme: dark;
@@ -223,6 +230,7 @@
   --ink: #e2e7ed;
   --paper-edge: #050608;
   --selection: #34496a;
+  --code-bg: #34383f;
   --icon-paper: #dde3ea;
   --icon-silver: #7c8590;
   color-scheme: dark;
@@ -266,6 +274,7 @@
   --ink: #efe3e6;
   --paper-edge: #080506;
   --selection: #64384a;
+  --code-bg: #3c3436;
   --icon-paper: #e9dee1;
   --icon-silver: #8c7d82;
   color-scheme: dark;
@@ -308,6 +317,7 @@
   --ink: #e7e3ef;
   --paper-edge: #060509;
   --selection: #4b3d6c;
+  --code-bg: #37343f;
   --icon-paper: #e2dee9;
   --icon-silver: #847e90;
   color-scheme: dark;

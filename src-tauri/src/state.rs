@@ -46,6 +46,8 @@ impl AppState {
         token
     }
 
+    // Desktop only: Android documents are URIs, kept by android_io.
+    #[cfg_attr(target_os = "android", allow(dead_code))]
     pub fn path_for(&self, token: u64) -> Option<PathBuf> {
         self.tokens.lock().ok()?.get(&token).cloned()
     }

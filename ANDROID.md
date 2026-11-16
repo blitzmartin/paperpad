@@ -167,18 +167,22 @@ Costi: config duplicata (la CSP da tenere allineata a mano), due versioni di Tau
 - La lista dei recenti (`recent.json` con i `PathBuf`) perde senso al riavvio, a meno di chiedere permessi persistenti sull'URI (`takePersistableUriPermission`).
 - `ensure_extension` non serve: su Android il nome del file lo decide il selettore.
 
-Soluzione proposta:
+Soluzione adottata: due trasporti separati, regole condivise.
 
-- Separare il "dove sta il documento" con un `enum Location { Path(PathBuf), Uri(String) }` dietro i token che già esistono. Il modello di sicurezza attuale (la webview non vede mai un percorso) resta intatto.
-- Usare `tauri-plugin-fs` **solo da Rust**, come già succede con `tauri-plugin-dialog`, senza dare alcuna capability alla webview, e solo come dipendenza Android.
-- Per la v2 (permessi persistenti, cartelle, nome del file) valutare la crate della community `tauri-plugin-android-fs` contro un piccolo plugin Kotlin scritto da noi. La crate toglierebbe quasi tutto il Kotlin, ma è una dipendenza di terze parti su un percorso critico per la sicurezza: prima di adottarla vanno controllate manutenzione e superficie dei permessi.
+- **Desktop invariato.** I comandi di `commands.rs` restano quelli su percorsi, con la scrittura atomica. Su Android i nove comandi che hanno una versione Android non vengono compilati (`#[cfg(desktop)]`): le macro `#[tauri::command]` generano nomi a livello di crate, quindi due comandi con lo stesso nome non possono convivere.
+- **Android in `src-tauri/src/android_io.rs`** (`#[cfg(target_os = "android")]`): apri, salva, Salva con nome, controllo delle modifiche esterne, reload, copia di conflitto, versioni e immagini. Stessi nomi, argomenti e risultati dei comandi desktop, quindi `src/io/backend.ts` è uno solo. Unica differenza: `save_conflict_copy` può restituire `null` (l'utente annulla).
+- **Condiviso:** formati, limiti di dimensione, ID del documento, `archive.rs` e le impronte (`state::fingerprint`). Un file salvato sul tablet è identico a uno salvato su desktop.
+- **Plugin Kotlin nostro** (`gen/android/app/src/main/java/com/paperboardlabs/paperpad/DocumentsPlugin.kt`) al posto di `tauri-plugin-dialog` e `tauri-plugin-fs`. Il dialog su Android apre con `ACTION_GET_CONTENT`, che può restituire una copia in sola lettura o temporanea (Dropbox, per esempio): il salvataggio fallirebbe, o scriverebbe su una copia che non si sincronizza. Nessuno dei due plugin restituisce il nome del file. Il plugin usa `ACTION_OPEN_DOCUMENT` e `ACTION_CREATE_DOCUMENT`, legge `DISPLAY_NAME` e passa a Rust un file descriptor (`"r"` o `"wt"`), così 32 MB non passano per l'IPC. Apre solo URI scelti dall'utente nella sessione, e nessuna capability concede i suoi comandi alla webview.
+- **Scrittura:** `"wt"`, poi `set_len` per i provider che ignorano la `t`, poi `sync_all` (ignorato sulle pipe). Non è atomica: lo storico conserva prima la copia del file sostituito e quella nuova.
+- **Storico senza modifiche ad `archive.rs`:** la chiave del documento è `<uri>/<nome>`, e la copia di base al primo salvataggio la fa `android_io`, perché `snapshot` non può leggere un URI.
+- Per la v2 (permessi persistenti, cartelle) il plugin Kotlin si estende con `takePersistableUriPermission` e `ACTION_OPEN_DOCUMENT_TREE`. La crate `tauri-plugin-android-fs` resta scartata: è una dipendenza di terze parti su un percorso critico per la sicurezza.
 
 ### Storico versioni
 
 `src-tauri/src/archive.rs` scrive in `app_data_dir`, che su Android è un percorso reale, quindi funziona quasi senza modifiche. Due ritocchi:
 
-- `doc_dir` per i file senza ID (Markdown, testo, vecchi file PaperPad) calcola l'hash del percorso: su Android deve usare la stringa URI. Un provider può restituire URI diversi per lo stesso file in momenti diversi, quindi per questi formati lo storico può frammentarsi. I file `.html` hanno l'ID UUID (`data-id`) e non hanno questo problema.
-- `snapshot` legge il file originale (`fs::read(doc.path)`) per conservare la copia di base al primo salvataggio: deve passare per l'astrazione `Location`.
+- `doc_dir` per i file senza ID (Markdown, testo, vecchi file PaperPad) calcola l'hash del percorso: su Android la chiave è `<uri>/<nome>`. Un provider può restituire URI diversi per lo stesso file in momenti diversi, quindi per questi formati lo storico può frammentarsi. I file `.html` hanno l'ID UUID (`data-id`) e non hanno questo problema.
+- `snapshot` legge il file originale (`fs::read(doc.path)`) per conservare la copia di base al primo salvataggio. Su Android quella lettura fallisce senza danni e la copia la fa `android_io::save_document`.
 
 Lo storico resta per dispositivo, come su desktop, e si perde se si disinstalla l'app.
 
@@ -271,6 +275,16 @@ Arial, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New e Comic Sans
 
 5. Aggiungere `keystore.properties` (in `.gitignore`) e la `signingConfig` in `gen/android/app/build.gradle.kts`, come da guida Tauri per la firma Android.
 
+### Sviluppo sul tablet via Wi-Fi
+
+Con il debug wireless l'app gira sul tablet e ricarica le modifiche senza creare un APK. Mac e tablet sulla stessa rete Wi-Fi.
+
+1. Sul tablet: Opzioni sviluppatore, poi Debug wireless attivo, poi "Associa dispositivo con codice di associazione".
+2. Sul Mac, una volta sola: `adb pair <ip>:<porta di associazione>` con il codice mostrato. Dopo l'associazione adb ritrova il tablet da solo sulla rete. Un `adb connect` manuale crea una seconda voce per lo stesso tablet e la CLI chiede quale usare: in quel caso `adb disconnect <ip>:<porta>`.
+3. `npm run android:dev`. Lo script crea un tunnel adb (`adb reverse tcp:1420 tcp:1420`) e avvia `tauri android dev --host 127.0.0.1`: il tablet raggiunge Vite su `127.0.0.1:1420` attraverso adb. Senza `--host` la CLI usa l'IP del Mac sulla rete locale, Vite (che ascolta solo su `127.0.0.1`) non risponde e la navigation guard bloccherebbe comunque quell'host. Così il dev server non è mai esposto sulla rete.
+
+Il tunnel si perde quando il tablet si scollega da adb: basta rilanciare lo script. La console della webview si apre da Chrome sul Mac con `chrome://inspect`.
+
 ### A ogni release
 
 Dopo che le build desktop di `release.yml` hanno finito (passo 6 di `RELEASE.md`) e prima di togliere il flag di pre-release:
@@ -338,7 +352,17 @@ Prima build debug (`tauri android build --debug --apk --target aarch64`) sul tab
 | Focus restituito all'editor da codice (`view.focus()` dopo la scelta di un colore) | La tastiera si riapre da sola. Nella shell mobile bastano popup che non prendono il focus, senza un pannello che sostituisce la tastiera. |
 | APK debug | 136 MB (Rust non ottimizzato con simboli di debug), solo `arm64-v8a`, firmato con la chiave di debug, `INTERNET` presente come previsto in debug. |
 
-Ancora da verificare: l'I/O su `content://`. Apri, Salva con nome e Aggiungi immagine oggi non fanno nulla, perché il backend converte l'URI in percorso e fallisce.
+L'I/O su `content://` passa ora per `android_io.rs` e il plugin Kotlin (vedi [File e percorsi](#file-e-percorsi-il-blocco-principale)). Compila per `aarch64-linux-android`, ma è ancora da provare sul tablet:
+
+- [ ] Il plugin Kotlin registrato dall'app (non da una crate) viene trovato all'avvio. Se no, l'app si chiude subito.
+- [ ] Apri da storage locale, Dropbox, Nextcloud e Drive: nome corretto e formato riconosciuto.
+- [ ] Salva sullo stesso file, poi verifica sul desktop che il file sincronizzato sia quello aggiornato.
+- [ ] Un file accorciato non lascia la coda della versione precedente.
+- [ ] Salva con nome: nome proposto, nome finale se il provider lo cambia (`Note (1).html`).
+- [ ] Conflitto: modifica il file sul desktop, salva sul tablet, prova "Keep both" (anche annullando) e "Replace it".
+- [ ] Aggiungi immagine.
+- [ ] Storico versioni dopo qualche salvataggio.
+- [ ] Dalla console (`chrome://inspect`), `window.__TAURI_INTERNALS__.invoke("plugin:documents|openDescriptor", { uri: "x", mode: "wt" })` deve essere rifiutato.
 
 ## Rischi da verificare nello spike
 

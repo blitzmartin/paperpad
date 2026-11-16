@@ -230,7 +230,8 @@ export function startApp() {
           // The copy is a new file, so like Save As it gets its own ID and history.
           const copyId = docId && newDocId();
           const copy = copyId ? await serializeDocument(doc, file.format, stem(), copyId) : content;
-          return { ...(await backend.saveConflictCopy(token, copy)), docId: copyId };
+          const copied = await backend.saveConflictCopy(token, copy);
+          return copied && { ...copied, docId: copyId };
         }
         out = await backend.save(token, content, false, historyKeepCount(), true);
       }

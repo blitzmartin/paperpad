@@ -1,10 +1,17 @@
 //! Commands callable from the webview. Each one is granted individually in
-//! capabilities/default.json (see build.rs).
+//! capabilities/desktop.json and capabilities/android.json (see build.rs).
+//!
+//! The document commands here work on filesystem paths and are the desktop
+//! ones. Android gets `content://` URIs instead and has its own versions in
+//! android_io.rs, which reuse the formats, limits and archive helpers below.
 //!
 //! Rules every command follows:
 //! - paths come only from native dialogs or from the recent list, never from JS;
 //! - inputs are size-limited and format names are matched against a closed set;
 //! - writes are atomic (temp file + rename) so a crash never truncates a document.
+
+// On Android only the shared helpers and commands are used (see lib.rs).
+#![cfg_attr(target_os = "android", allow(dead_code, unused_imports))]
 
 use std::borrow::Cow;
 use std::fs;
@@ -25,18 +32,18 @@ use crate::zip;
 /// Largest document we read or write. Text alone rarely passes 1 MiB; the
 /// rest is room for images, which are stored in the document (base64).
 /// MAX_DOC_CHARS in src/editor/image.ts must match.
-const MAX_DOC_BYTES: usize = 32 * 1024 * 1024;
+pub(crate) const MAX_DOC_BYTES: usize = 32 * 1024 * 1024;
 /// Largest image file that can be added. The webview scales it down first.
-const MAX_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
+pub(crate) const MAX_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
 
-type CmdResult<T> = Result<T, String>;
+pub(crate) type CmdResult<T> = Result<T, String>;
 
 // ---------------------------------------------------------------------------
 // Formats
 // ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Format {
+pub(crate) enum Format {
     Html,
     Markdown,
     Text,
@@ -52,12 +59,12 @@ impl Format {
         Self::ALL.into_iter().find(|f| f.name() == name)
     }
 
-    fn from_path(path: &Path) -> Option<Self> {
+    pub(crate) fn from_path(path: &Path) -> Option<Self> {
         let ext = path.extension()?.to_str()?.to_ascii_lowercase();
         Self::ALL.into_iter().find(|f| f.extensions().contains(&ext.as_str()))
     }
 
-    fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Html => "html",
             Self::Markdown => "md",
@@ -75,7 +82,7 @@ impl Format {
         }
     }
 
-    fn extensions(self) -> &'static [&'static str] {
+    pub(crate) fn extensions(self) -> &'static [&'static str] {
         match self {
             Self::Html => &["html", "htm"],
             Self::Markdown => &["md", "markdown"],
@@ -84,7 +91,7 @@ impl Format {
         }
     }
 
-    fn is_editable(self) -> bool {
+    pub(crate) fn is_editable(self) -> bool {
         Self::EDITABLE.contains(&self)
     }
 }
@@ -96,22 +103,22 @@ impl Format {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenedDoc {
-    token: u64,
-    name: String,
-    format: &'static str,
-    content: String,
+    pub(crate) token: u64,
+    pub(crate) name: String,
+    pub(crate) format: &'static str,
+    pub(crate) content: String,
     /// The document ID of a PaperPad file, if it has one.
-    doc_id: Option<String>,
+    pub(crate) doc_id: Option<String>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SavedDoc {
-    token: u64,
-    name: String,
-    format: &'static str,
+    pub(crate) token: u64,
+    pub(crate) name: String,
+    pub(crate) format: &'static str,
     /// Set when the version archive could not be written.
-    warning: Option<String>,
+    pub(crate) warning: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -143,7 +150,7 @@ fn file_name(path: &Path) -> String {
 }
 
 /// Turns a frontend-suggested name into a safe bare file stem.
-fn clean_stem(name: &str) -> String {
+pub(crate) fn clean_stem(name: &str) -> String {
     let stem: String = name
         .chars()
         .filter(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
@@ -175,6 +182,12 @@ fn ensure_extension(path: PathBuf, allowed: &[&str]) -> PathBuf {
     }
 }
 
+/// A document's bytes as text, without the byte order mark some editors add.
+pub(crate) fn decode_text(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    text.strip_prefix('\u{feff}').unwrap_or(&text).to_string()
+}
+
 /// Reads a document as text, with the fingerprint of the bytes on disk.
 fn read_file(path: &Path) -> CmdResult<(String, Fingerprint)> {
     let meta = fs::metadata(path).map_err(|e| format!("Cannot read file: {e}"))?;
@@ -185,8 +198,7 @@ fn read_file(path: &Path) -> CmdResult<(String, Fingerprint)> {
         return Err("File is larger than 32 MB".into());
     }
     let bytes = fs::read(path).map_err(|e| format!("Cannot read file: {e}"))?;
-    let text = String::from_utf8_lossy(&bytes);
-    Ok((text.strip_prefix('\u{feff}').unwrap_or(&text).to_string(), fingerprint(&bytes)))
+    Ok((decode_text(&bytes), fingerprint(&bytes)))
 }
 
 fn read_text(path: &Path) -> CmdResult<String> {
@@ -228,7 +240,7 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> CmdResult<()> {
     Ok(())
 }
 
-fn check_size(content: &str) -> CmdResult<()> {
+pub(crate) fn check_size(content: &str) -> CmdResult<()> {
     if content.len() > MAX_DOC_BYTES {
         Err("Document too large".into())
     } else {
@@ -292,6 +304,8 @@ fn save_dialog_for(window: &Window, format: Format, suggested: &str, start: Opti
 // ---------------------------------------------------------------------------
 
 /// Shows the native Open dialog. Returns None when the user cancels.
+// Android: android_io::open_document.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_document(window: Window, state: State<'_, AppState>) -> CmdResult<Option<OpenedDoc>> {
     let all: Vec<&str> = Format::EDITABLE.iter().flat_map(|f| f.extensions().iter().copied()).collect();
@@ -339,19 +353,19 @@ pub fn list_recent(state: State<'_, AppState>) -> Vec<RecentEntry> {
 
 /// Writes a copy of what is about to be saved to the version archive. A
 /// problem here never stops the save: it comes back as a warning to show.
-fn archive_copy(state: &AppState, doc: archive::Doc, bytes: &[u8], auto: bool, keep: u32) -> Result<(), String> {
+pub(crate) fn archive_copy(state: &AppState, doc: archive::Doc, bytes: &[u8], auto: bool, keep: u32) -> Result<(), String> {
     let data_dir = state.data_dir().ok_or("No app data folder")?;
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
     archive::snapshot(&data_dir, doc, bytes, auto, keep as usize, now).map(|_| ())
 }
 
 /// The warning shown when the archive failed but the save itself went through.
-fn archive_warning(result: Result<(), String>) -> Option<String> {
+pub(crate) fn archive_warning(result: Result<(), String>) -> Option<String> {
     result.err().map(|e| format!("Saved, but the version history could not be written: {e}"))
 }
 
 /// The ID in a PaperPad file's content. Other formats have none.
-fn doc_id_of(format: Format, content: &str) -> Option<String> {
+pub(crate) fn doc_id_of(format: Format, content: &str) -> Option<String> {
     if format == Format::Html {
         archive::extract_doc_id(content)
     } else {
@@ -363,9 +377,9 @@ fn doc_id_of(format: Format, content: &str) -> Option<String> {
 #[serde(rename_all = "camelCase")]
 pub struct SaveOutcome {
     /// The file on disk changed since PaperPad read or wrote it, so nothing was written.
-    conflict: bool,
+    pub(crate) conflict: bool,
     /// Set when the version archive could not be written.
-    warning: Option<String>,
+    pub(crate) warning: Option<String>,
 }
 
 /// Saves in place to a file the user opened or saved earlier in this session.
@@ -376,6 +390,8 @@ pub struct SaveOutcome {
 /// computer saved it through a cloud app, say), nothing is written and the
 /// outcome says so. With `force` the file is replaced anyway, but its content
 /// is kept in the version archive first.
+// Android: android_io::save_document.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn save_document(
     token: u64,
@@ -413,6 +429,8 @@ pub async fn save_document(
 
 /// True when the open file was changed on disk by someone else. Async so that
 /// reading and hashing a large file does not block the main thread.
+// Android: android_io::check_external_change.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn check_external_change(token: u64, state: State<'_, AppState>) -> CmdResult<bool> {
     Ok(state.path_for(token).is_some_and(|path| changed_on_disk(&state, token, &path)))
@@ -435,13 +453,15 @@ fn keep_previous(state: &AppState, token: u64, path: &Path, previous: &str, keep
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReloadedDoc {
-    content: String,
-    doc_id: Option<String>,
+    pub(crate) content: String,
+    pub(crate) doc_id: Option<String>,
 }
 
 /// Reads the open file again, after it changed on disk. The token stays the same.
 /// `previous` is the document as last saved in the editor: it is archived first
 /// (see `keep_previous`), and if that fails nothing is reloaded.
+// Android: android_io::reload_document.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn reload_document(token: u64, previous: String, keep: u32, state: State<'_, AppState>) -> CmdResult<ReloadedDoc> {
     let path = state.path_for(token).ok_or("Unknown document")?;
@@ -457,6 +477,8 @@ pub async fn reload_document(token: u64, previous: String, keep: u32, state: Sta
 /// Saves the user's version as a new file next to the original, named
 /// `<name> (conflict <date>).<ext>`, and leaves the original untouched. The
 /// returned token is the new file's: the editor continues with it.
+// Android: android_io::save_conflict_copy.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn save_conflict_copy(token: u64, content: String, state: State<'_, AppState>) -> CmdResult<SavedDoc> {
     check_size(&content)?;
@@ -483,6 +505,8 @@ pub async fn save_conflict_copy(token: u64, content: String, state: State<'_, Ap
 }
 
 /// Save As always produces the native format (HTML).
+// Android: android_io::save_document_as.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn save_document_as(
     window: Window,
@@ -522,14 +546,8 @@ pub fn get_documents_folder(state: State<'_, AppState>) -> Option<String> {
 /// Shows the native folder picker and remembers the choice. Returns the new
 /// folder's name, or None when the user cancels.
 ///
-/// Desktop only: the dialog plugin has no folder picker on Android, and the
-/// Android capability does not grant this command (see ANDROID.md).
-#[cfg(mobile)]
-#[tauri::command]
-pub async fn choose_documents_folder() -> CmdResult<Option<String>> {
-    Err("Choosing a folder is not available on this device".into())
-}
-
+/// Desktop only: the dialog plugin has no folder picker on Android, so this
+/// command is neither compiled nor registered there (see ANDROID.md).
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn choose_documents_folder(window: Window, state: State<'_, AppState>) -> CmdResult<Option<String>> {
@@ -564,28 +582,41 @@ pub struct VersionEntry {
     bytes: u64,
 }
 
-/// The saved versions of an open document, newest first.
-#[tauri::command]
-pub fn list_versions(token: u64, state: State<'_, AppState>) -> CmdResult<Vec<VersionEntry>> {
-    let path = state.path_for(token).ok_or("Unknown document")?;
+/// The saved versions of a document, newest first.
+pub(crate) fn versions_of(state: &AppState, doc: archive::Doc) -> CmdResult<Vec<VersionEntry>> {
     let data_dir = state.data_dir().ok_or("No app data folder")?;
-    let id = state.doc_id(token);
-    Ok(archive::list(&data_dir, archive::Doc { path: &path, id: id.as_deref() })
+    Ok(archive::list(&data_dir, doc)
         .into_iter()
         .map(|v| VersionEntry { id: v.id, time_ms: v.time * 1000, bytes: v.bytes })
         .collect())
 }
 
+/// The content of one saved version of a document.
+pub(crate) fn version_text(state: &AppState, doc: archive::Doc, id: &str) -> CmdResult<String> {
+    let data_dir = state.data_dir().ok_or("No app data folder")?;
+    let bytes = archive::read(&data_dir, doc, id).ok_or("That version no longer exists")?;
+    Ok(decode_text(&bytes))
+}
+
+/// The saved versions of an open document, newest first.
+// Android: android_io::list_versions.
+#[cfg(desktop)]
+#[tauri::command]
+pub fn list_versions(token: u64, state: State<'_, AppState>) -> CmdResult<Vec<VersionEntry>> {
+    let path = state.path_for(token).ok_or("Unknown document")?;
+    let id = state.doc_id(token);
+    versions_of(&state, archive::Doc { path: &path, id: id.as_deref() })
+}
+
 /// The content of one saved version. The webview decides what to do with it;
 /// nothing is written until the user saves.
+// Android: android_io::read_version.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn read_version(token: u64, id: String, state: State<'_, AppState>) -> CmdResult<String> {
     let path = state.path_for(token).ok_or("Unknown document")?;
-    let data_dir = state.data_dir().ok_or("No app data folder")?;
     let doc_id = state.doc_id(token);
-    let bytes = archive::read(&data_dir, archive::Doc { path: &path, id: doc_id.as_deref() }, &id).ok_or("That version no longer exists")?;
-    let text = String::from_utf8_lossy(&bytes);
-    Ok(text.strip_prefix('\u{feff}').unwrap_or(&text).to_string())
+    version_text(&state, archive::Doc { path: &path, id: doc_id.as_deref() }, &id)
 }
 
 /// Exports text-based formats. Returns the chosen file name, or None on cancel.
@@ -661,7 +692,7 @@ pub async fn export_docx(window: Window, parts: Vec<ZipPart>, suggested_name: St
 // ---- images -----------------------------------------------------------------
 
 /// The image types the webview can decode, recognized by their first bytes.
-fn is_image(b: &[u8]) -> bool {
+pub(crate) fn is_image(b: &[u8]) -> bool {
     b.starts_with(b"\x89PNG\r\n\x1a\n")
         || b.starts_with(&[0xff, 0xd8, 0xff])
         || b.starts_with(b"GIF8")
@@ -672,6 +703,8 @@ fn is_image(b: &[u8]) -> bool {
 /// Shows the native Open dialog for an image and returns its bytes, never
 /// its path. The webview scales and converts it (src/ui/image-import.ts)
 /// and stores it in the document. Empty bytes mean the user cancelled.
+// Android: android_io::pick_image.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn pick_image(window: Window) -> CmdResult<Response> {
     let picked = file_dialog(&window)

@@ -78,8 +78,12 @@ export const changedOnDisk = (token: number) => optional<boolean>(false, "check_
 export const reload = (token: number, previous: string, keep: number) =>
   call<{ content: string; docId: string | null }>("reload_document", { token, previous, keep });
 
-/** Saves next to the original as "<name> (conflict <date>)" and returns the new file. */
-export const saveConflictCopy = (token: number, content: string) => call<SavedDoc>("save_conflict_copy", { token, content });
+/**
+ * Saves the copy as "<name> (conflict <date>)" and returns the new file. Desktop
+ * puts it next to the original. Android asks where to save it, with that name
+ * proposed, and returns null when the user cancels.
+ */
+export const saveConflictCopy = (token: number, content: string) => call<SavedDoc | null>("save_conflict_copy", { token, content });
 
 export const saveAs = (content: string, suggestedName: string, keep: number) =>
   call<SavedDoc | null>("save_document_as", { content, suggestedName, keep });

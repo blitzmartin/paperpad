@@ -1,3 +1,5 @@
+#[cfg(target_os = "android")]
+mod android_io;
 mod archive;
 mod base64;
 mod commands;
@@ -40,7 +42,9 @@ pub fn run() {
                 state.load_documents_dir();
             }
             Ok(())
-        })
+        });
+    #[cfg(desktop)]
+    let builder = builder
         .invoke_handler(tauri::generate_handler![
             commands::open_document,
             commands::open_recent,
@@ -62,9 +66,28 @@ pub fn run() {
             commands::recovery_write,
             commands::recovery_read,
             commands::recovery_clear,
-        ]);
-    #[cfg(desktop)]
-    let builder = builder.on_window_event(close_guard);
+        ])
+        .on_window_event(close_guard);
+    // Android documents are content:// URIs, opened through android_io and its
+    // Kotlin plugin. Recent files, the documents folder and export are not
+    // there yet (see ANDROID.md). The last four commands are the desktop ones.
+    // capabilities/android.json grants exactly this list.
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(android_io::init()).invoke_handler(tauri::generate_handler![
+        android_io::open_document,
+        android_io::save_document,
+        android_io::save_document_as,
+        android_io::check_external_change,
+        android_io::reload_document,
+        android_io::save_conflict_copy,
+        android_io::list_versions,
+        android_io::read_version,
+        android_io::pick_image,
+        commands::set_document_state,
+        commands::recovery_write,
+        commands::recovery_read,
+        commands::recovery_clear,
+    ]);
     builder.run(tauri::generate_context!()).expect("error while running PaperPad");
 }
 

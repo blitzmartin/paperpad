@@ -1,7 +1,7 @@
 // Classic menu bar and dropdown menus with keyboard navigation.
 
 import { type Action, shortcutText } from "./action.ts";
-import { dismissable, h, placeBelow } from "./dom.ts";
+import { dismissable, h, placeBelow } from "../ui-kit/dom.ts";
 
 export type MenuEntry =
   | (Action & { kind?: "item" })

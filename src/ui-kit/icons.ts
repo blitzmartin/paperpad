@@ -46,6 +46,8 @@ export const ICONS = {
   sun: `<circle class="y k" cx="10" cy="10" r="3.5"/><path class="k" d="M10 1.75v2.5M10 15.75v2.5M1.75 10h2.5M15.75 10h2.5M4.2 4.2l1.75 1.75M14.05 14.05l1.75 1.75M4.2 15.8l1.75-1.75M14.05 5.95 15.8 4.2"/>`,
   moon: `<path class="s k" d="M12.5 2.5a7.25 7.25 0 1 0 5 12.25A6 6 0 0 1 12.5 2.5z"/><path class="y" d="M15.5 3l.55 1.2 1.2.55-1.2.55-.55 1.2-.55-1.2-1.2-.55 1.2-.55z"/>`,
   caret: `<path class="f" d="M6 8h8l-4 4.5z"/>`,
+  // The mobile shell's main menu.
+  menu: `<rect class="f" x="3" y="4.25" width="14" height="2.25" rx=".6"/><rect class="f" x="3" y="8.9" width="14" height="2.25" rx=".6"/><rect class="f" x="3" y="13.5" width="14" height="2.25" rx=".6"/>`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

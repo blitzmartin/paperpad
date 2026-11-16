@@ -701,7 +701,7 @@ pub(crate) fn is_image(b: &[u8]) -> bool {
 }
 
 /// Shows the native Open dialog for an image and returns its bytes, never
-/// its path. The webview scales and converts it (src/ui/image-import.ts)
+/// its path. The webview scales and converts it (src/ui-kit/image-import.ts)
 /// and stores it in the document. Empty bytes mean the user cancelled.
 // Android: android_io::pick_image.
 #[cfg(desktop)]

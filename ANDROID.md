@@ -84,8 +84,9 @@ Se lo spike conferma che `tauri-plugin-fs` legge e scrive su `content://` da Rus
 ```
 src/
   editor/ io/ export/   core condiviso
+  ui-kit/               core condiviso: dialog, DOM, icone, tema, immagini, impostazioni dello storico
   app.ts, ui/           shell desktop
-  mobile/               shell mobile: main.ts, toolbar minima, CSS proprio
+  mobile/               shell mobile: main.ts (barre e menu), session.ts (documento), mobile.css
 index.html              entry desktop
 mobile.html             entry mobile
 ```
@@ -234,12 +235,17 @@ Una UI propria, pensata per il touch, sopra il core condiviso. Non è un adattam
 
 ### Contenuto
 
-- **Barra superiore:** nuovo, apri, salva, Salva con nome, nome del documento con l'indicatore di modifiche non salvate.
-- **Toolbar di formattazione minima:** grassetto, corsivo, sottolineato, titoli 1-3, elenco puntato e numerato, annulla e ripeti. Usa i comandi di `src/editor/commands.ts` e `src/editor/actions.ts`.
-- **Editor in vista continua.** Niente `pagesPlugin`: la shell compone i propri plugin dai pezzi di `src/editor` (keymap, history, caret).
-- **Autosave attivo di default** per i file HTML già salvati, perché non c'è un dialog alla chiusura. Recovery sempre attivo.
+- **Barra superiore:** menu (hamburger), nome del documento con `*` per le modifiche non salvate, annulla, ripeti, salva.
+- **Menu:** Nuovo, Apri, Salva, Salva con nome, Aggiungi immagine, Dark mode, About.
+- **Toolbar di formattazione in basso**, subito sopra la tastiera, scorrevole in orizzontale: grassetto, corsivo, sottolineato, barrato, togli formattazione, Normale, titoli 1-3, citazione, blocco di codice, elenchi, rientri, allineamento, riga orizzontale, immagine. L'app è disegnata fino ai bordi (`enableEdgeToEdge`) e in questa modalità Android non la ridimensiona per la tastiera: lo fa `MainActivity.kt`, che riduce la WebView dell'altezza della tastiera. `interactive-widget=resizes-content` da solo non basta nella WebView.
+- **Tocco per scrivere:** l'editor riempie il foglio, e un tocco intorno al foglio porta il cursore in fondo al documento. Usa i comandi di `src/editor/commands.ts` e `src/editor/actions.ts`.
+- **Editor in vista continua.** Lo stesso `createView` del desktop con la vista pagina spenta: `pagesPlugin` resta ma non disegna nulla.
+- **Autosave sempre attivo** per i file HTML già salvati, 15 secondi dopo la prima modifica e subito quando l'app va in background (`visibilitychange`). Recovery sempre attivo. Niente opzioni.
+- **Reload** dei file cambiati su un altro dispositivo quando l'app torna in primo piano.
 - **Dialog dei conflitti** con "Keep both" che apre Salva con nome.
-- **Facoltativi nella v1:** inserimento di immagini e storico versioni.
+- **Inserimento di immagini** nella v1. Lo storico versioni subito dopo: il backend archivia già a ogni salvataggio.
+- **Font dei nuovi documenti:** Atkinson Hyperlegible, incluso nell'app.
+- **Logica dei file separata** da `app.ts`, in `src/mobile/session.ts`, con le stesse regole in forma ridotta. È una duplicazione voluta, così la shell desktop non cambia: si riunisce in un modulo del core quando la shell mobile sarà stabile (vedi [Backlog](#backlog)).
 
 Tutto quello che il documento contiene e la shell non sa modificare (stili personalizzati, colori, font, allineamenti, numeri di pagina) resta nel file così com'è, perché lo schema è lo stesso.
 
@@ -281,7 +287,7 @@ Con il debug wireless l'app gira sul tablet e ricarica le modifiche senza creare
 
 1. Sul tablet: Opzioni sviluppatore, poi Debug wireless attivo, poi "Associa dispositivo con codice di associazione".
 2. Sul Mac, una volta sola: `adb pair <ip>:<porta di associazione>` con il codice mostrato. Dopo l'associazione adb ritrova il tablet da solo sulla rete. Un `adb connect` manuale crea una seconda voce per lo stesso tablet e la CLI chiede quale usare: in quel caso `adb disconnect <ip>:<porta>`.
-3. `npm run android:dev`. Lo script crea un tunnel adb (`adb reverse tcp:1420 tcp:1420`) e avvia `tauri android dev --host 127.0.0.1`: il tablet raggiunge Vite su `127.0.0.1:1420` attraverso adb. Senza `--host` la CLI usa l'IP del Mac sulla rete locale, Vite (che ascolta solo su `127.0.0.1`) non risponde e la navigation guard bloccherebbe comunque quell'host. Così il dev server non è mai esposto sulla rete.
+3. `npm run android:dev`. Lo script crea un tunnel adb (`adb reverse tcp:1421 tcp:1421`) e avvia `tauri android dev --host 127.0.0.1`, che lancia la shell mobile (`npm run dev:mobile`, porta 1421): il tablet raggiunge Vite su `127.0.0.1:1421` attraverso adb. Senza `--host` la CLI usa l'IP del Mac sulla rete locale, Vite (che ascolta solo su `127.0.0.1`) non risponde e la navigation guard bloccherebbe comunque quell'host. Così il dev server non è mai esposto sulla rete.
 
 Il tunnel si perde quando il tablet si scollega da adb: basta rilanciare lo script. La console della webview si apre da Chrome sul Mac con `chrome://inspect`.
 
@@ -332,7 +338,7 @@ Il percorso esatto dell'APK sotto `src-tauri/gen/android/app/build/outputs/apk/`
    - i moduli di sole impostazioni di `src/ui` che servono anche al mobile, per esempio `autosave.ts`, `history.ts` e la lettura delle preferenze in `theme.ts`.
 2. **Spike (1-3 giorni).** `tauri android init`, esecuzione su emulatore tablet e su un tablet reale con una shell mobile minima. Verificare: lettura e scrittura su `content://` da Rust, nome del file dall'URI, salvataggio con il dialog su Android, IME con Gboard, aggiornamento dei file letti dai provider cloud. Il resto del piano dipende da questi risultati.
 3. **Backend v1.** Astrazione `Location`, I/O su URI, adattamento di `archive.rs` e di `save_conflict_copy`, moduli `#[cfg(mobile)]`, capability Android, Manifest senza `INTERNET`.
-4. **Shell mobile v1.** Barra superiore, toolbar minima, editor in vista continua, ciclo di vita con `visibilitychange`, autosave di default, dialog dei conflitti, font incluso come default.
+4. **Shell mobile v1 (in test).** Vedi [Shell mobile](#4-shell-mobile). `mobile.html`, `src/mobile/`, `vite.mobile.config.ts` (porta 1421, output `dist-mobile`), `tsconfig.mobile.json`, `src-tauri/tauri.android.conf.json` (finestra su `mobile.html`, `devCsp` sulla porta 1421), script `dev:mobile`, `build:mobile`, `typecheck:mobile`. I moduli UI condivisi sono passati in `src/ui-kit/`. Il CSS del documento è ancora in `main.css`: `mobile.css` lo importa intero.
 5. **Build e distribuzione.** Keystore, `scripts/android-release.sh`, `android-check.yml`, aggiornamento di `RELEASE.md` e del README, checklist di test manuale su tablet reale.
 6. **v2.** Plugin di stampa, cartella PaperPad con `ACTION_OPEN_DOCUMENT_TREE`, recenti persistenti, inserimento di immagini e storico versioni se non già nella v1, font con metriche compatibili, intent filter "Apri con".
 
@@ -379,3 +385,14 @@ L'I/O su `content://` passa ora per `android_io.rs` e il plugin Kotlin (vedi [Fi
 | Selettore di cartelle non supportato da alcuni provider (v2) | Cartella PaperPad solo con storage locale, Syncthing o Nextcloud |
 | `window.print()` inattivo (atteso, v2) | Plugin Kotlin con `PrintManager` |
 | Permessi URI non persistenti (v2) | Recenti limitati alla sessione, o plugin Kotlin |
+
+## Backlog
+
+| Tema | Note |
+|---|---|
+| Icona dell'app | L'app Android ha ancora l'icona di Tauri. Generare le icone Android da quella desktop (`npm run tauri icon <png sorgente>` aggiorna anche `gen/android/app/src/main/res/mipmap-*`) e controllare l'icona adattiva (sfondo e area sicura). |
+| Tasto indietro di Android | Oggi chiude l'app anche con un dialog o il menu aperti. Con `onBackButtonPress` di `@tauri-apps/api/app` si chiude prima il dialog. Richiede `core:app:allow-register-listener` in `capabilities/android.json`. |
+| Storico versioni nella shell mobile | Il backend archivia già. Manca la UI touch: elenco, anteprima, ripristino. |
+| Scelta del tema colori | Su mobile solo Dark mode. Il tema (Sage, Slate...) usa il default. |
+| Logica dei file in comune | `src/mobile/session.ts` e la parte file di `src/app.ts` applicano le stesse regole: riunirle in un modulo del core con i test, quando la shell mobile è stabile. |
+| CSS del documento nel core | Separare da `main.css` le regole del documento, così `mobile.css` non importa anche quelle della UI desktop. Aggiornare `tests/core/fonts.test.ts` e `tests/core/palette.test.ts`. |

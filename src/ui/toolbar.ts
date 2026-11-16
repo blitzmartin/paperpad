@@ -13,8 +13,8 @@ import { lockedRole } from "../editor/roles.ts";
 import { colorKey, resolveStyles, STYLE_LABELS, type StyleId } from "../editor/styles.ts";
 import { schema } from "../editor/schema.ts";
 import { type Action, shortcutText } from "./action.ts";
-import { dismissable, h, placeBelow } from "./dom.ts";
-import { icon, type IconName } from "./icons.ts";
+import { dismissable, h, placeBelow } from "../ui-kit/dom.ts";
+import { icon, type IconName } from "../ui-kit/icons.ts";
 import { type MenuEntry, openMenu } from "./menu.ts";
 
 export interface ToolbarDeps {

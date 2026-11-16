@@ -1,0 +1,22 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev:mobile",
+    "devUrl": "http://127.0.0.1:1421",
+    "beforeBuildCommand": "npm run build:mobile",
+    "frontendDist": "../dist-mobile"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "PaperPad",
+        "url": "mobile.html"
+      }
+    ],
+    "security": {
+      "devCsp": {
+        "connect-src": "ipc: http://ipc.localhost ws://127.0.0.1:1421"
+      }
+    }
+  }
+}

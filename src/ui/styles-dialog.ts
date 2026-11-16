@@ -24,9 +24,9 @@ import {
   type StyleId,
   type TextStyle,
 } from "../editor/styles.ts";
-import { h } from "./dom.ts";
-import { icon, type IconName } from "./icons.ts";
-import { showModal } from "./modal.ts";
+import { h } from "../ui-kit/dom.ts";
+import { icon, type IconName } from "../ui-kit/icons.ts";
+import { showModal } from "../ui-kit/modal.ts";
 
 export interface StylesResult {
   /** Normal's font, which is the document's font. */

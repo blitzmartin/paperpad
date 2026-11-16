@@ -200,6 +200,14 @@ export function setBlockStyle(style: BlockStyle): Command {
 export const toggleCodeBlock: Command = (state, dispatch) =>
   setBlockStyle(state.selection.$from.parent.type === N.code_block ? "paragraph" : "code")(state, dispatch);
 
+/**
+ * Wraps the paragraph in a quote, or takes it out of the quote it is in.
+ * For a toggle button: setBlockStyle("quote") always wraps, so pressing it
+ * again would nest a quote in the quote.
+ */
+export const toggleQuote: Command = (state, dispatch) =>
+  setBlockStyle(ancestorDepth(state, (t) => t === N.blockquote) ? "paragraph" : "quote")(state, dispatch);
+
 /** Toggles a list: wraps, unwraps or converts between bullet and numbered. */
 export function toggleList(listType: NodeType): Command {
   return (state, dispatch) => {
@@ -327,6 +335,25 @@ export const exitCodeBlock =
     }
     return true;
   };
+
+/**
+ * Enter on an empty last line of a code block leaves the block: the empty
+ * line is removed and the caret moves to the start of the paragraph after it
+ * (one is added if needed). For keyboards without arrow keys, such as Gboard,
+ * where exitCodeBlock cannot be reached.
+ */
+export const exitCodeOnEmptyLine: Command = (state, dispatch) => {
+  const { $head, empty } = state.selection;
+  if (!empty || $head.parent.type !== N.code_block) return false;
+  if ($head.parentOffset !== $head.parent.content.size || !$head.parent.textContent.endsWith("\n")) return false;
+  if (dispatch) {
+    const tr = state.tr.delete($head.pos - 1, $head.pos);
+    const after = tr.mapping.map($head.after());
+    if (!tr.doc.nodeAt(after)?.isTextblock) tr.insert(after, N.paragraph.create());
+    dispatch(tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView());
+  }
+  return true;
+};
 
 // ---- document settings ----------------------------------------------------------
 

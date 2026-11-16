@@ -4,7 +4,7 @@
 // saved file stays one standalone .html that any browser opens. Only PNG and
 // JPEG are kept: every exporter (Word, RTF) and every browser reads them, and
 // they cannot carry scripts. Anything else is converted when it is added
-// (see ui/image-import.ts). Remote images are never accepted, so a document
+// (see ui-kit/image-import.ts). Remote images are never accepted, so a document
 // cannot load anything from the network.
 //
 // Pure functions only: the schema, the exporters and the tests share them.
@@ -179,6 +179,13 @@ export function imageChars(doc: { descendants(f: (n: { type: { name: string }; a
   });
   return n;
 }
+
+/**
+ * True when a new image of `srcLength` characters still leaves room for the
+ * text: Rust refuses to save a document larger than MAX_DOC_CHARS.
+ */
+export const roomForImage = (doc: Parameters<typeof imageChars>[0], srcLength: number): boolean =>
+  imageChars(doc) + srcLength <= MAX_DOC_CHARS - 1024 * 1024;
 
 /** The text that stands in for an image in Markdown and plain text. */
 export const imagePlaceholder = (alt: string) => (alt ? `[Image: ${alt}]` : "[Image]");

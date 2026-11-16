@@ -1,0 +1,7 @@
+{
+  // The mobile build checks the core and the mobile shell only, so an error
+  // in the desktop shell never blocks it. See tsconfig.desktop.json.
+  "extends": "./tsconfig.json",
+  "include": ["src"],
+  "exclude": ["src/app.ts", "src/main.ts", "src/ui"]
+}

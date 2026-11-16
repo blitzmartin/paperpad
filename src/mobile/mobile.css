@@ -1,0 +1,204 @@
+/* Mobile shell (mobile.html): the desktop look, sized for touch.
+ *
+ * main.css comes first, unchanged: its tokens, themes, bevels, icons,
+ * windows and every document rule (fonts, sizes, colors, styles, images) are
+ * shared, so a document looks the same on both. Its desktop-only rules (menu
+ * bar, desktop toolbar, page view, print) target classes this shell never uses.
+ * Splitting main.css would change the order of the desktop rules, so it waits
+ * until the mobile shell is settled (ANDROID.md, section 7). */
+
+@import "../styles/main.css";
+
+:root {
+  /* Readable at arm's length on a tablet. */
+  --ui-size: 15px;
+  /* The 48 px touch target (ANDROID.md, "Requisiti touch"). */
+  --touch: 48px;
+}
+
+/* 100dvh follows the on-screen keyboard (interactive-widget=resizes-content),
+ * so the formatting bar stays right above it. */
+.m-app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+}
+
+/* ---- bars -------------------------------------------------------------------- */
+
+.m-top,
+.m-format {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* The app is drawn edge to edge (MainActivity): keep clear of the system bars. */
+  padding-left: calc(6px + env(safe-area-inset-left));
+  padding-right: calc(6px + env(safe-area-inset-right));
+}
+
+.m-top {
+  padding-top: calc(4px + env(safe-area-inset-top));
+  padding-bottom: 4px;
+}
+
+.m-format {
+  padding-top: 4px;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--lo);
+  border-bottom: 0;
+  /* More tools than a tablet held upright can show: the bar scrolls sideways. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.m-format::-webkit-scrollbar {
+  display: none;
+}
+
+.m-app .tb {
+  flex: none;
+  min-width: var(--touch);
+  height: var(--touch);
+  border-radius: 4px;
+}
+.m-app .tb .ico {
+  width: 24px;
+  height: 24px;
+}
+.m-app .tb-sep {
+  height: 30px;
+}
+/* No hover on touch: a lifted look would stick after a tap. */
+.m-app .tb:hover:not(:disabled) {
+  box-shadow: none;
+}
+.m-app .tb:active:not(:disabled),
+.m-app .tb[aria-pressed="true"] {
+  box-shadow: var(--sunken);
+}
+
+/* Paragraph styles shown as text (¶, H1, H2, H3). */
+.m-text-tool {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.m-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0 6px;
+  font-weight: 700;
+}
+.m-title-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-dirty {
+  color: var(--accent);
+}
+
+/* ---- main menu ----------------------------------------------------------------- */
+
+.m-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.m-menu {
+  position: fixed;
+  z-index: 50;
+  top: calc(var(--touch) + 12px + env(safe-area-inset-top));
+  left: calc(6px + env(safe-area-inset-left));
+  min-width: 260px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.m-menu[hidden],
+.m-backdrop[hidden] {
+  display: none;
+}
+.m-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--touch);
+  padding: 0 14px 0 10px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  text-align: left;
+}
+.m-item:active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.m-item[aria-checked="true"]::after {
+  content: "✓";
+  margin-left: auto;
+}
+.m-item-gap {
+  width: 20px;
+}
+.m-menu-sep {
+  width: 100%;
+  margin: 3px 0;
+  border: 0;
+  border-top: 1px solid var(--lo);
+  border-bottom: 1px solid var(--hi);
+}
+
+/* ---- document -------------------------------------------------------------------- */
+
+.m-workspace {
+  padding: 12px 12px 24px;
+}
+/* A sheet as wide as the screen instead of an A4 page, at least as tall as it.
+ * The editor fills the whole sheet, so a tap anywhere on it, even below the
+ * last line, lands in the editor and opens the keyboard. (A percentage
+ * min-height would not work here: the sheet's own height is not fixed.) */
+.m-page {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 4px 0 var(--paper-edge);
+}
+.m-page .doc {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 24px;
+}
+
+/* ---- dialogs and messages ----------------------------------------------------------- */
+
+#modal-root .btn {
+  min-height: var(--touch);
+  padding: 0 18px;
+}
+#modal-root .titlebar .close {
+  width: 36px;
+  height: 32px;
+}
+
+.m-toast {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: calc(var(--touch) + 24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 8px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--chrome);
+  box-shadow:
+    var(--raised),
+    3px 3px 0 rgba(0, 0, 0, 0.28);
+}
+.m-toast[hidden] {
+  display: none;
+}

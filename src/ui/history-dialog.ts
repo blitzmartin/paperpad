@@ -3,9 +3,9 @@
 // editor as an ordinary change (undoable, not saved until the user saves).
 
 import type { VersionEntry } from "../io/backend.ts";
-import { h } from "./dom.ts";
-import { sizeLabel } from "./history.ts";
-import { showModal } from "./modal.ts";
+import { h } from "../ui-kit/dom.ts";
+import { sizeLabel } from "../ui-kit/history.ts";
+import { showModal } from "../ui-kit/modal.ts";
 
 /** Resolves with the id of the chosen version, or null when cancelled. */
 export async function pickVersion(name: string, versions: VersionEntry[]): Promise<string | null> {

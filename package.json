@@ -8,12 +8,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.desktop.json && vite build",
+    "dev:mobile": "vite --config vite.mobile.config.ts",
+    "build:mobile": "tsc --noEmit -p tsconfig.mobile.json && vite build --config vite.mobile.config.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:desktop": "tsc --noEmit -p tsconfig.desktop.json",
+    "typecheck:mobile": "tsc --noEmit -p tsconfig.mobile.json",
     "test": "node --experimental-strip-types --test \"tests/**/*.test.ts\"",
     "test:desktop": "node --experimental-strip-types --test \"tests/core/**/*.test.ts\" \"tests/desktop/**/*.test.ts\"",
     "tauri": "tauri",
-    "android:dev": "adb reverse tcp:1420 tcp:1420 && tauri android dev --host 127.0.0.1",
+    "android:dev": "adb reverse tcp:1421 tcp:1421 && tauri android dev --host 127.0.0.1",
     "bump": "node --experimental-strip-types scripts/bump.ts"
   },
   "dependencies": {

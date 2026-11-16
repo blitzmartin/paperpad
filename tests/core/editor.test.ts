@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../../src/editor/actions.ts";
-import { deleteRuleBefore, exitCodeBlock, pageNumbersOn, stats, togglePageNumbers } from "../../src/editor/commands.ts";
+import { currentBlockStyle, deleteRuleBefore, exitCodeBlock, exitCodeOnEmptyLine, pageNumbersOn, stats, togglePageNumbers, toggleQuote } from "../../src/editor/commands.ts";
 import { blockBreakPos, fitGapHeights, GAP, gapTarget, MARGIN, PAGE_H } from "../../src/editor/pages.ts";
 import { schema } from "../../src/editor/schema.ts";
 import { newState } from "../../src/editor/setup.ts";
@@ -83,6 +83,45 @@ test("arrow up leaves a code block at the start of the document", () => {
   assert.ok(exitCodeBlock("up")(state, (tr) => (state = state.apply(tr))));
   assert.deepEqual(types(state), ["paragraph", "code_block"]);
   assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("enter on an empty last line leaves a code block, keeping its text", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\n")), p("after")]));
+  const end = state.doc.child(0).nodeSize - 1;
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, end)));
+  assert.ok(exitCodeOnEmptyLine(state, (tr) => (state = state.apply(tr))));
+  assert.equal(state.doc.child(0).textContent, "a", "the empty line is removed");
+  // The paragraph that follows is reused: nothing is added.
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.textContent, "after");
+  assert.equal(state.selection.$from.parentOffset, 0);
+});
+
+test("enter in a code block stays a newline unless the last line is empty", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\nb"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.equal(exitCodeOnEmptyLine(state), false, "last line has text");
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  assert.equal(exitCodeOnEmptyLine(state), false, "not at the end");
+});
+
+test("leaving a code block at the end of the document adds a paragraph", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\n"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.ok(exitCodeOnEmptyLine(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("the quote toggle wraps once and unwraps the second time", () => {
+  let state = newState(N.doc.create(null, [p("q")]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+  assert.ok(toggleQuote(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["blockquote"]);
+  assert.equal(currentBlockStyle(state), "quote");
+  assert.ok(toggleQuote(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph"], "no quote inside the quote");
+  assert.equal(currentBlockStyle(state), "paragraph");
 });
 
 test("the word count includes the selection only when there is one", () => {

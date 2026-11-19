@@ -5,7 +5,7 @@
 // to render and export, pasted content cannot smuggle arbitrary styles in,
 // and the page renders with CSS classes so the CSP can forbid inline styles.
 //
-// Every key here must have a matching class in src/styles/main.css
+// Every key here must have a matching class in src/styles/document.css
 // (tests/palette.test.ts checks this).
 
 export interface FontDef {

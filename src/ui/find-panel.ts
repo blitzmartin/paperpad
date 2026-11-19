@@ -2,7 +2,7 @@
 
 import type { EditorView } from "prosemirror-view";
 import { findAll, findNext, type FindOptions, replaceAll, replaceOne } from "../editor/find.ts";
-import { h } from "./dom.ts";
+import { h } from "../ui-kit/dom.ts";
 
 export function createFindPanel(view: EditorView) {
   let panel: HTMLElement | null = null;

@@ -1,6 +1,6 @@
 // Prints the CSS classes for the palette. Paste the output between the
-// "palette:start" and "palette:end" markers in src/styles/main.css whenever
-// src/editor/palette.ts changes (tests/palette.test.ts will remind you).
+// "palette:start" and "palette:end" markers in src/styles/document.css whenever
+// src/editor/palette.ts changes (tests/core/palette.test.ts will remind you).
 // Run: node --experimental-strip-types scripts/palette-css.ts
 import { COLORS, FONTS, HIGHLIGHTS, SIZES } from "../src/editor/palette.ts";
 

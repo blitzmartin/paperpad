@@ -1,0 +1,8 @@
+{
+  // The desktop build checks the core and the desktop shell only, so an error
+  // in the mobile shell (src/mobile) never blocks a desktop build. The full
+  // tsconfig.json checks everything and is the one CI runs.
+  "extends": "./tsconfig.json",
+  "include": ["src"],
+  "exclude": ["src/mobile"]
+}

@@ -13,8 +13,8 @@ import { lockedRole } from "../editor/roles.ts";
 import { colorKey, resolveStyles, STYLE_LABELS, type StyleId } from "../editor/styles.ts";
 import { schema } from "../editor/schema.ts";
 import { type Action, shortcutText } from "./action.ts";
-import { dismissable, h, placeBelow } from "./dom.ts";
-import { icon, type IconName } from "./icons.ts";
+import { dismissable, h, placeBelow } from "../ui-kit/dom.ts";
+import { icon, type IconName } from "../ui-kit/icons.ts";
 import { type MenuEntry, openMenu } from "./menu.ts";
 
 export interface ToolbarDeps {
@@ -215,7 +215,7 @@ export function buildToolbar(root: HTMLElement, deps: ToolbarDeps): (state: Edit
     sep(),
     group(tool(A.bullets, "bullets"), tool(A.numbers, "numbers"), tool(A.outdent, "outdent"), tool(A.indent, "indent")),
     sep(),
-    group(tool(A.image, "image"), tool(A.rule, "rule"), tool(A.codeBlock, "code"), tool(A.clearFormatting, "clear")),
+    group(tool(A.image, "image"), tool(A.rule, "rule"), tool(A.quote, "quote"), tool(A.codeBlock, "code"), tool(A.clearFormatting, "clear")),
   );
 
   root.append(standard, format);

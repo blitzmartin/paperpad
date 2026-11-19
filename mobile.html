@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- resizes-content: the on-screen keyboard shrinks the page instead of
+         covering it, so the caret and the formatting bar stay visible.
+         viewport-fit=cover: the app is drawn edge to edge (MainActivity),
+         and mobile.css keeps clear of the system bars. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>PaperPad</title>
+    <link rel="stylesheet" href="/src/mobile/mobile.css" />
+  </head>
+  <body>
+    <div id="app" class="m-app">
+      <header id="topbar" class="chrome m-top"></header>
+      <main id="workspace" class="workspace m-workspace">
+        <div id="page" class="page m-page"></div>
+      </main>
+      <nav id="format" class="chrome m-format" aria-label="Formatting"></nav>
+    </div>
+    <div id="modal-root"></div>
+    <script type="module" src="/src/mobile/main.ts"></script>
+  </body>
+</html>

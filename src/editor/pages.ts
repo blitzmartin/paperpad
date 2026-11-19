@@ -1,7 +1,7 @@
 // Page view: the document shown as A4 sheets, like a classic word processor.
 //
 // The document stays one flowing editor. Behind it a column of sheets is
-// drawn (a grid cell shared with the editor, see .page.paged in main.css).
+// drawn (a grid cell shared with the editor, see .page.paged in styles/document.css).
 // Where a page fills up, an invisible spacer is inserted as a widget
 // decoration. It pushes the rest of the text down to the next sheet. Breaks
 // fall between blocks or between two lines of a paragraph, and keep at least
@@ -19,7 +19,7 @@ import type { Node as PMNode } from "prosemirror-model";
 import { type Command, type EditorState, Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 
-// Geometry in CSS pixels of the unzoomed page. Must match .page.paged in main.css.
+// Geometry in CSS pixels of the unzoomed page. Must match .page.paged in styles/document.css.
 const CM = 96 / 2.54;
 export const PAGE_W = 21 * CM;
 export const PAGE_H = 29.7 * CM;

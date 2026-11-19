@@ -6,29 +6,30 @@ import type { Node as PMNode } from "prosemirror-model";
 import { type Command, type EditorState, NodeSelection, TextSelection } from "prosemirror-state";
 import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction, type EditorActionId } from "./editor/actions.ts";
 import * as cmd from "./editor/commands.ts";
-import { cleanAlt, IMAGE_ALIGN_LABELS, IMAGE_ALIGNS, IMAGE_SIZES, imageChars, MAX_ALT, MAX_DOC_CHARS } from "./editor/image.ts";
+import { cleanAlt, IMAGE_ALIGN_LABELS, IMAGE_ALIGNS, IMAGE_SIZES, MAX_ALT, roomForImage } from "./editor/image.ts";
 import { pageViewOn, relayoutPages, setPageView } from "./editor/pages.ts";
 import { schema } from "./editor/schema.ts";
 import { blankDoc, createView, newState } from "./editor/setup.ts";
 import { toDocxParts } from "./export/docx.ts";
 import { toRtf } from "./export/rtf.ts";
 import { toPlainText } from "./export/text.ts";
-import { backend, inApp, type OpenedDoc, type TextExport } from "./io/backend.ts";
+import * as backend from "./io/backend.ts";
+import { inApp, type OpenedDoc, type TextExport } from "./io/backend.ts";
 import { type EditableFormat, newDocId, parseDocument, serializeDocument, serializeHtml } from "./io/native.ts";
 import type { Action } from "./ui/action.ts";
 import { AUTOSAVE_INTERVALS } from "./ui/autosave.ts";
-import { h } from "./ui/dom.ts";
+import { h } from "./ui-kit/dom.ts";
 import { createFindPanel } from "./ui/find-panel.ts";
 import { pickVersion } from "./ui/history-dialog.ts";
-import { pickWithInput, prepareImage } from "./ui/image-import.ts";
+import { pickWithInput, prepareImage } from "./ui-kit/image-import.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, openMenuAt, SEP, type TopMenu } from "./ui/menu.ts";
-import { alertBox, isModalOpen, showModal } from "./ui/modal.ts";
+import { alertBox, isModalOpen, showModal } from "./ui-kit/modal.ts";
 import { autosavePrefs, historyKeepCount, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
 import { openStylesDialog } from "./ui/styles-dialog.ts";
-import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui/theme.ts";
+import { currentPalette, currentTheme, loadPref, loadZoom, onThemeChange, PALETTES, saveZoom, setPalette, storePref, toggleTheme, ZOOM_STEPS } from "./ui-kit/theme.ts";
 import { buildToolbar } from "./ui/toolbar.ts";
 import { offerWelcome } from "./ui/welcome.ts";
 import { VERSION } from "./version.ts";
@@ -229,7 +230,8 @@ export function startApp() {
           // The copy is a new file, so like Save As it gets its own ID and history.
           const copyId = docId && newDocId();
           const copy = copyId ? await serializeDocument(doc, file.format, stem(), copyId) : content;
-          return { ...(await backend.saveConflictCopy(token, copy)), docId: copyId };
+          const copied = await backend.saveConflictCopy(token, copy);
+          return copied && { ...copied, docId: copyId };
         }
         out = await backend.save(token, content, false, historyKeepCount(), true);
       }
@@ -538,8 +540,7 @@ export function startApp() {
     try {
       for (const file of files) {
         const img = await prepareImage(file);
-        // Leave room for the text: Rust refuses to save more than MAX_DOC_CHARS.
-        if (imageChars(view.state.doc) + img.src.length > MAX_DOC_CHARS - 1024 * 1024) {
+        if (!roomForImage(view.state.doc, img.src.length)) {
           throw new Error("the document would be larger than 32 MB, the most PaperPad can save");
         }
         if (pos !== null) {
@@ -745,7 +746,8 @@ export function startApp() {
     BLOCK_STYLES.map((b) => ({
       label: b.label,
       keys: b.key ? [b.key] : undefined,
-      run: () => run(cmd.setBlockStyle(b.style)),
+      // Quote again takes the paragraph out of its quote, as the mobile toolbar does.
+      run: () => run(b.style === "quote" ? cmd.toggleQuote : cmd.setBlockStyle(b.style)),
       checked: () => cmd.currentBlockStyle(view.state) === b.style,
     }));
 

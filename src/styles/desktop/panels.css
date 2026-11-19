@@ -1,0 +1,110 @@
+/* Desktop color pickers, find and replace, View > Options.
+ * Desktop only: imported by main.css. Part of main.css, in its order: see the note there. */
+
+/* Colour pickers */
+.swatches {
+  z-index: 60;
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+.swatch-none {
+  width: 100%;
+}
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 22px);
+  gap: 4px;
+}
+.swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px var(--edge),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.45);
+}
+.swatch:hover {
+  transform: translate(-1px, -1px);
+  box-shadow:
+    0 0 0 1px var(--edge),
+    2px 2px 0 var(--edge);
+}
+
+/* Find and replace */
+.find-panel {
+  position: fixed;
+  top: 132px;
+  right: 28px;
+  z-index: 40;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+}
+.find-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 10px 10px 4px;
+}
+.find-buttons {
+  display: flex;
+  gap: 4px;
+}
+.find-buttons .btn {
+  min-width: 64px;
+  padding: 4px 8px;
+}
+.find-options {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 4px 10px 10px;
+}
+.find-status {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* View > Options */
+.options input[type="radio"],
+.options input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+.options {
+  display: grid;
+  gap: 10px;
+}
+.opt-group {
+  margin: 0;
+  padding: 4px 10px 8px;
+  border: 1px solid var(--lo);
+  border-radius: 3px;
+  box-shadow:
+    1px 1px 0 var(--hi),
+    inset 1px 1px 0 var(--hi);
+}
+.opt-group legend {
+  padding: 0 4px;
+}
+.opt-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.opt-stack {
+  display: grid;
+  gap: 6px;
+}
+.opt-themes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+}
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

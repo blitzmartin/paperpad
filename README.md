@@ -1,143 +1,65 @@
 # PaperPad
 
 A fast, light and local-first word processor with a modern retro 90s look.
-Think WordPad in 1995, with a softer palette, a dark mode and today's file formats.
+For Windows, macOS, Linux and Android tablets.
 
-- **Toolbar for everything:** new, open, save, print, export, clipboard, undo, find and replace, page numbers, paragraph styles, fonts, sizes, bold, italic, underline, strikethrough, text color, highlight, alignment, lists, indent, image, horizontal rule, code block, clear formatting.
-- **Images** from the toolbar, Format, Add image, Ctrl+Shift+G or the right-click menu, or by pasting or dropping them on the page. PNG, JPEG, GIF, WebP and BMP files work. Each image is saved inside the document, so the file stays one standalone `.html`. Large photos are scaled down to 2000 pixels on the longest side and their metadata, such as the place a photo was taken, is removed. Right-click an image (or use Format) to choose its size (Original size, Small, Medium, Large or Page width), its alignment and its alternative text. With Left, text around or Right, text around the image sits on that side and the text after it flows beside it, as in Word. Word, RTF and PDF exports include the images (RTF places them on their side, without text around); Markdown and plain text show the alternative text in brackets instead, like `[Image: A cat]`.
-- **Right-click menu** in the document with cut, copy, paste and the image tools. Shift+right-click shows the system menu, with the spelling suggestions.
-- **Code blocks** you can leave with the arrow keys: Down on the last line, Up on the first.
-- **Page view or infinite view** in the View menu. Page view shows the document as A4 sheets with the same margins as print and the status bar shows which page you are on. Infinite view is one long sheet.
-- **Page numbers** from the toolbar in page view: at the bottom of each sheet and on each printed page, in PDF, Word and RTF exports. The setting is saved with the document. Infinite view has no page numbers: switching to it turns them off and a document opened in it loses them the next time it is saved.
-- **Word count** in the status bar, with the count for the selection when text is selected.
-- **Paragraph styles** in Format, Styles: choose the font, size, color, bold, italic and underline, line spacing and spacing of Normal text, Heading 1 to 3, Quote and Code, and the color, thickness, line (solid, dashed, dotted or double), width and spacing of the horizontal rule. A change reaches every paragraph with that style (or every rule), even ones written earlier. In headings, quotes and code the font, size and color always come from the style, so the toolbar greys them out there and the document stays consistent. In Normal text the toolbar sets the font and size of the text itself, as in Google Docs or Word (see [Styles and the toolbar](#styles-and-the-toolbar)). Styles are saved with each document. New documents start from the default styles with your default font.
-- **Default font** of your choice in View, Options (Trebuchet MS until you choose one). New documents start with it and it is saved with each document, so a file looks the same on any computer.
-- **Fonts:** Arial, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New and Comic Sans MS from your system, plus four open fonts that come with PaperPad and look the same on every computer: Atkinson Hyperlegible (made for easy reading), Inter, Literata (for long texts) and JetBrains Mono (the font of the Code style and of code inside a line). A saved file or a Word or RTF export opened on a computer without them uses a similar font instead.
-- **Writing feel** in View, Options: Classic, Smooth or Calm caret presets (see [Writing feel presets](#writing-feel-presets)), plus advanced settings for caret movement, blink, shape and smooth scrolling.
-- **Spell checking** you can turn on in View, Options (it is off until you do). It checks the Windows display language only, so words in other languages are underlined too.
-- **Themes:** Sage, Gray, Sand, Slate, Rose and Lilac, all soft on the eyes, from View, Theme. Each one has a light and a dark mode, which follows your system until you choose.
-- **Local only:** no accounts, no network, no telemetry.
-- **Your files outlive the app:** documents are saved as a single standalone `.html` file, an open standard instead of a closed format. Any browser on any system opens it with its formatting intact, today or decades from now, with or without PaperPad. It has no scripts and no external links and it stays readable as plain text, so your writing is never locked in.
-- **Opens** PaperPad `.html`, Markdown `.md` and plain `.txt` files.
-- **Exports** to PDF (through the print dialog), Word `.docx`, Rich Text `.rtf`, Markdown and plain text.
-- **Autosave** you can turn on in File, Autosave or in View, Options, Saving, where you also choose how soon changes are saved: from 10 seconds to 10 minutes. It is off until you turn it on. It saves PaperPad documents once they have a file, and also when you switch to another window. Text and Markdown files are only saved when you choose Save, because they keep no formatting.
-- **PaperPad folder:** in View, Options, Files you can choose the folder where you keep your documents. Open and Save as start there. To use PaperPad on several computers, choose a folder that your cloud app keeps in sync (see [Using PaperPad on more than one computer](#using-paperpad-on-more-than-one-computer)). PaperPad never connects to the internet: your cloud app does the syncing and PaperPad just works on the files. The choice applies at once.
-- **Welcome window:** the first time PaperPad starts it explains the PaperPad folder and offers to choose it. It is optional: choose "Not now" and everything still works, you just browse to your documents each time. It is shown once and the folder can be set later in View, Options, Files.
-- **Safe with a cloud app:** each PaperPad file carries a small random document ID, so its history follows it when you rename or move it. If another computer saves a file you have open, PaperPad notices:
-  - If you have no unsaved changes, it reloads the new version when you come back to the window. The version you had stays in the version history.
-  - If you have unsaved changes, it never overwrites the other version silently. When you save it asks you to either keep both (your version is saved next to it as `Name (conflict 20261114-153000).html`) or replace the other version, which stays in the version history.
-  - Autosave never decides this on its own. It stops and waits for you to choose Save.
-- **Version history:** every time you save, PaperPad also keeps a copy named with the date and time (for example `Letter_20261114-153000.html`, in UTC) in its own data folder, written before your file is. File, Version history lists the copies and restores one as a change you can undo. Identical saves are not repeated, autosave adds a version at most every 5 minutes and the oldest copies are deleted beyond the number you choose in View, Options, Files (20, 50 or 100, 50 by default). The copies stay on your computer and never go into your document folders.
-- **Crash recovery:** with or without autosave, PaperPad keeps a copy of unsaved work in its own data folder every 15 seconds, including new documents that were never saved. If the app or the computer stops unexpectedly, PaperPad offers to restore that copy the next time it starts. The copy is removed once you save or choose not to keep your changes.
-- **Small:** about 100 KB of gzipped JavaScript at startup, installers of a few MB. Documents can be up to 32 MB, which leaves room for many images.
+## Why PaperPad
 
-## Using PaperPad on more than one computer
+- **Simple.** Opens in an instant, every tool is in the toolbar, nothing to set up.
+- **No account, no login, no network.** It never connects to the internet. No telemetry, no tracking.
+- **No permissions.** On desktop it touches only the files you pick in the system dialogs. On Android it asks for no permission at all.
+- **Your cloud, your choice.** No sync of its own: use Dropbox, Nextcloud, OneDrive, Syncthing or any service you trust. A file changed on another device is never overwritten silently.
+- **Files that outlive the app.** One standalone `.html` per document, which any browser opens with its formatting, with or without PaperPad.
+- **Hard to lose work.** Version history on every save, crash recovery and autosave.
 
-PaperPad has no sync of its own and never connects to the internet. Instead you pick a folder that a sync app you already trust keeps identical on all your computers. Your documents are ordinary files, so any service that syncs a folder works.
+## Features
 
-1. Install the sync app on each computer and sign in to the same account.
-2. Make a folder inside it, for example `Dropbox/PaperPad`.
-3. In PaperPad choose that folder in View, Options, Files (or in the welcome window). Do the same on the other computers.
+- Paragraph styles (Normal, Heading 1 to 3, Quote, Code) set once for the whole document, fonts, sizes, colors, highlight, alignment, lists, indent, horizontal rule, code block.
+- Images stored inside the document, scaled down and stripped of metadata.
+- Opens `.html`, Markdown and plain text. Exports to PDF, Word, RTF, Markdown and plain text.
+- Find and replace, word count, page view with page numbers or one infinite sheet, spell checking.
+- Six themes, each light and dark, and a choice of caret feel.
+- Fonts that look the same everywhere: Atkinson Hyperlegible, Inter, Literata and JetBrains Mono come with the app.
 
-The services below are examples, not recommendations. What they offer changes over time, so check the provider before you rely on it.
+**On Android tablets:** open, edit and save documents from the tablet or any cloud app in the system file picker, with a touch toolbar above the keyboard, images, page view with page numbers, autosave always on and the same file format as desktop. Export, print and the desktop settings are not there yet.
 
-| Service | Windows | macOS | Linux | Good to know |
-|---|---|---|---|---|
-| Dropbox | yes | yes | yes | The same on all three systems. The free plan is enough for text documents. |
-| Nextcloud | yes | yes | yes | Open source. You host it yourself or use a provider. |
-| Syncthing | yes | yes | yes | Open source, with no server. Your computers send files to each other, so two of them must be on at the same time. |
-| pCloud, MEGA | yes | yes | yes | Free plans are small. |
-| OneDrive | yes | yes | no official app | Fine if you use Windows and macOS only. |
-| Google Drive | yes | yes | no official app | Same as OneDrive. |
-| iCloud Drive | limited | yes | no | Best kept for Apple devices. |
-
-Tips:
-
-- Let the sync app finish (most show an "up to date" icon) before you close one computer and open the same document on another. Otherwise you may open an older version, and PaperPad will treat the newer one as a conflict.
-- If your sync app keeps some files "online only", make the PaperPad folder available offline so PaperPad can open them.
-- Version history stays on each computer and is not synced. Your documents travel, their history does not.
-- If two computers change the same document, PaperPad never overwrites either version silently: when you save it asks you to keep both or replace the other one, and a replaced version stays in the version history of the computer that replaced it.
-
-## Writing feel presets
-
-| | Classic | Smooth | Calm |
-| --- | --- | --- | --- |
-| Caret movement | Instant | Glides (60 ms) | Glides slowly (140 ms) |
-| When you pause | Blinks | Fades in and out | Stays solid |
-| Caret | Thin line | Thin line | Thick line |
-| Smooth scrolling | Off | On | On |
-
-The caret never blinks while you type, only after half a second of pause. Calm is the default. If Windows or your system is set to reduce animations, Classic is the default instead. Any preset can be adjusted under Advanced.
-
-## Styles and the toolbar
-
-Normal text has two layers of formatting, as in Google Docs and Word:
-
-1. **The Normal style**, set in Format, Styles. It is the look of every Normal paragraph that has nothing set by hand.
-2. **Formatting set by hand**, from the toolbar: a font, a size, a color, bold and so on. It applies to the text you select, or to what you type next, and it wins over the style.
-
-What this means in practice:
-
-- **Pressing Enter keeps your formatting.** If you pick Georgia 14 in the toolbar and write, the next line is Georgia 14 too, in paragraphs and in lists. After a heading the next paragraph starts again from the Normal style.
-- **Changing Normal in Format, Styles changes all Normal text that has no font or size set by hand.** Text with its own font or size keeps it. So if you picked a font in the toolbar and wrote the whole document with it, changing Normal's font in Styles changes nothing you can see.
-- **Format, Update Normal to match** turns what you set by hand into the style. Put the caret in the text (or select it) and choose it: Normal takes that font and size, so Normal text with nothing set by hand changes to match. All text set by hand to that same font or size looks the same as before, but it follows the Normal style again, so later changes in Format, Styles reach it. Undo reverts it in one step.
-- **Format, Clear formatting** removes what you set by hand from the selection, so it follows the Normal style.
-- Picking Normal's own font or size in the toolbar sets nothing by hand: the text simply follows the style. The font list shows it as "Default".
-- **Headings, quotes and code** have no second layer for font, size and color: these always come from their style, so the toolbar greys them out there. Bold, italic, underline, strikethrough and highlight stay free everywhere.
-
-One difference from Google Docs: an empty line keeps the formatting only while the caret stays on it. If you click away and come back to an empty line, it starts from the Normal style.
+The [guide](GUIDE.md) covers sync between devices, conflicts, version history, styles and more.
 
 ## Download
 
-Grab the installer for your system from the [Releases](../../releases) page:
+From the [Releases](../../releases) page:
 
 | System | File |
 |---|---|
-| Windows 10 and 11 | `PaperPad_x.y.z_x64-setup.exe` or `.msi` |
+| Windows 10 and 11 | `.exe` or `.msi` |
 | macOS 11 or later | `.dmg` (`aarch64` for Apple Silicon, `x64` for Intel) |
 | Linux | `.AppImage`, `.deb` or `.rpm` |
+| Android 7.0 or later (tablets) | `_android_arm64.apk` |
 
-The builds are not code signed yet, so the system warns you the first time you open PaperPad.
+The apps are not signed by a store, so the system warns you once:
 
-- **Windows:** choose "More info" then "Run anyway" in SmartScreen.
-- **macOS:** drag PaperPad to Applications and try to open it once. Then go to System Settings, Privacy and Security, scroll down and choose "Open Anyway". If macOS says the app "is damaged and can't be opened", it only means it is not signed. Run this in Terminal, then open it again:
-
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/PaperPad.app
-  ```
-
-  This removes the "downloaded from the internet" flag from PaperPad only. It does not change any security setting on your Mac.
+- **Windows:** "More info", then "Run anyway".
+- **macOS:** open it once, then "Open Anyway" in System Settings, Privacy and Security. If it says the app "is damaged", run `xattr -dr com.apple.quarantine /Applications/PaperPad.app` in Terminal.
+- **Android:** allow your browser or file manager to install unknown apps. If Play Protect warns, choose "Install anyway".
 
 ## Build from source
 
-Requirements: [Node.js](https://nodejs.org) 22 or later, [Rust](https://rustup.rs) stable and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system (WebView2 is already part of Windows 11; Linux needs the WebKitGTK packages listed there).
+Needs [Node.js](https://nodejs.org) 22+, [Rust](https://rustup.rs) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/). For Android see [ANDROID.md](ANDROID.md).
 
 ```sh
 npm install
-npm run tauri dev     # run the app with hot reload
-npm run tauri build   # build an installer for this machine
+npm run tauri dev       # desktop app with hot reload
+npm run tauri build     # desktop installer
+npm run android:dev     # Android app on a connected tablet
+npm test                # all tests (cd src-tauri && cargo test for Rust)
 ```
 
-Other scripts:
-
-```sh
-npm run dev           # frontend only, in a browser (open and save are disabled)
-npm run typecheck
-npm test              # exporter, palette and editor tests (Node's built-in runner)
-cd src-tauri && cargo test
-npm run bump 0.2.0    # set the version everywhere (or patch, minor, major)
-```
-
-## Releasing
-
-Publishing a release on GitHub builds the installers for every platform and attaches them to it. See [RELEASE.md](RELEASE.md) for the steps, the release notes template and the branch workflow.
+A shared core (`src/editor`, `src/io`, `src/export`, `src/ui-kit`) and two shells, desktop (`src/app.ts`, `src/ui`) and mobile (`src/mobile`), which never import each other. Releases: see [RELEASE.md](RELEASE.md).
 
 ## License
 
-PaperPad is source available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
-You may use, study, modify and share it for any noncommercial purpose, including personal use and use by charities, schools and public bodies. Commercial use is not permitted.
-For a commercial license, contact paperboardlabs@gmail.com.
+Source available under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for any noncommercial use, including charities, schools and public bodies. For a commercial license, contact paperboardlabs@gmail.com.
 
-The bundled fonts are not part of that license. Atkinson Hyperlegible (Braille Institute of America), Inter (The Inter Project Authors), Literata (The Literata Project Authors) and JetBrains Mono (The JetBrains Mono Project Authors) are free software under the [SIL Open Font License 1.1](https://openfontlicense.org). Each one ships unmodified with its license in [public/fonts](public/fonts).
+The bundled fonts are under the [SIL Open Font License 1.1](https://openfontlicense.org), each with its license in [public/fonts](public/fonts): Atkinson Hyperlegible (Braille Institute of America), Inter (The Inter Project Authors), Literata (The Literata Project Authors), JetBrains Mono (The JetBrains Mono Project Authors).
 
 Copyright © 2026 Paper Board Labs.

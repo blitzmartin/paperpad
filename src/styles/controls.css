@@ -1,0 +1,211 @@
+/* Toolbar buttons, separators, wells and icons.
+ * Shared by both shells (main.css and src/mobile/mobile.css). Part of main.css, in its order: see the note there. */
+
+/* ---- toolbars ------------------------------------------------------------------ */
+
+.toolbar {
+  padding: 2px 4px 4px;
+  display: grid;
+  gap: 3px;
+}
+
+.tb-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  background: var(--chrome);
+  border-radius: 4px;
+  box-shadow: var(--raised);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tb-row::-webkit-scrollbar {
+  display: none;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+}
+.tb-spacer {
+  flex: 1;
+}
+
+.tb-sep {
+  width: 2px;
+  height: 22px;
+  margin: 0 3px;
+  flex: none;
+  border-left: 1px solid var(--lo);
+  border-right: 1px solid var(--hi);
+}
+
+.tb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  cursor: default;
+}
+.tb[hidden] {
+  display: none;
+}
+.tb:hover:not(:disabled) {
+  box-shadow: var(--raised);
+}
+.tb:active:not(:disabled),
+.tb[aria-pressed="true"] {
+  background: var(--chrome-2);
+  box-shadow: var(--sunken);
+}
+.tb[aria-pressed="true"] .ico {
+  transform: translate(1px, 1px);
+}
+.tb:disabled {
+  opacity: 0.4;
+}
+.tb.has-caret {
+  padding-right: 0;
+}
+.tb.has-caret .ico:last-child {
+  width: 12px;
+  margin-left: -2px;
+}
+.tb.has-bar {
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 3px;
+}
+.tb.has-bar .ico {
+  width: 18px;
+  height: 18px;
+}
+
+.color-bar {
+  width: 18px;
+  height: 4px;
+  margin-top: 1px;
+  border-radius: 1px;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--lo);
+}
+
+/* Sunken wells for typing and choosing: toolbar selects and dialog fields. */
+.tb-select,
+.field {
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--well);
+}
+.tb-select:disabled {
+  opacity: 0.55;
+}
+.tb-select.w-style {
+  width: 104px;
+}
+.tb-select.w-font {
+  width: 140px;
+}
+.tb-select.w-size {
+  width: 52px;
+}
+.tb-select option {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ---- icons ------------------------------------------------------------------------ */
+
+.ico {
+  display: block;
+  fill: none;
+  stroke: none;
+  flex: none;
+  overflow: visible;
+}
+.ico .k {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ico .f {
+  fill: currentColor;
+}
+.ico .p {
+  fill: var(--icon-paper);
+}
+.ico .a {
+  fill: var(--icon-blue);
+}
+.ico .y {
+  fill: var(--icon-yellow);
+}
+.ico .r {
+  fill: var(--icon-red);
+}
+.ico .g {
+  fill: var(--icon-green);
+}
+.ico .s {
+  fill: var(--icon-silver);
+}
+.ico .w {
+  fill: var(--icon-wood);
+}
+.ico .ka,
+.ico .kg,
+.ico .kt {
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ico .ka {
+  stroke: var(--icon-blue);
+}
+.ico .kg {
+  stroke: var(--icon-green);
+}
+.ico .kt {
+  stroke: currentColor;
+  stroke-width: 3;
+}
+.ico .kn {
+  stroke: var(--icon-blue);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.ico .t {
+  fill: currentColor;
+  text-anchor: middle;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+}
+.ico .tbo {
+  font-weight: 800;
+}
+.ico .ti {
+  font-style: italic;
+  font-weight: 700;
+}
+.ico .tu {
+  font-weight: 600;
+}
+.ico .tn {
+  font: 700 6.5px var(--ui-font);
+  fill: var(--icon-blue);
+}

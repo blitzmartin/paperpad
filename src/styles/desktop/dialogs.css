@@ -1,0 +1,311 @@
+/* Desktop dialogs: Options, tabs, version history, alternative text, print and Format > Styles.
+ * Desktop only: imported by main.css. Part of main.css, in its order: see the note there. */
+
+.opt-font-sample {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--well);
+  font-size: 12pt;
+}
+
+/* Tabs, as in a 90s properties dialog: the selected tab joins the panel. */
+.tabbed {
+  width: min(460px, 100%);
+}
+.tab-strip {
+  display: flex;
+  gap: 2px;
+  padding-left: 4px;
+}
+.tab {
+  position: relative;
+  top: 1px;
+  padding: 4px 12px 3px;
+  border: 1px solid var(--lo);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--chrome-2);
+  color: var(--text);
+  font: inherit;
+  box-shadow: inset 1px 1px 0 var(--hi);
+}
+.tab[aria-selected="true"] {
+  z-index: 1;
+  padding-bottom: 5px;
+  margin-top: -2px;
+  background: var(--chrome);
+}
+.tab:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -4px;
+}
+.tab-body {
+  padding: 10px;
+  border: 1px solid var(--lo);
+  border-radius: 0 3px 3px 3px;
+  background: var(--chrome);
+  box-shadow: inset 1px 1px 0 var(--hi);
+}
+/* The panels share one grid cell, so the dialog keeps the size of the
+ * largest tab instead of jumping when you switch. */
+.tab-body {
+  display: grid;
+}
+.tab-panel {
+  grid-area: 1 / 1;
+  align-content: start;
+}
+.tab-panel[hidden] {
+  display: grid;
+  visibility: hidden;
+}
+/* File > Version history */
+.version-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.opt-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92em;
+}
+.preview-well {
+  position: relative;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--well);
+}
+.doc.preview {
+  min-height: 0;
+  padding: 8px 10px;
+}
+.opt-advanced summary {
+  padding: 2px 0;
+  cursor: default;
+}
+/* Format > Alternative text */
+.alt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 100%);
+}
+.alt-field {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.opt-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 8px 0 2px;
+}
+
+@media (max-width: 720px) {
+  .workspace {
+    padding: 12px 8px 32px;
+  }
+  .doc {
+    padding: 1.2cm 1cm;
+  }
+  .sb-chars,
+  .sb-format {
+    display: none;
+  }
+}
+
+/* ---- printing and Save as PDF: only the document, on plain white paper ---- */
+
+@page {
+  size: A4;
+  margin: 2cm;
+}
+
+@media print {
+  html,
+  body,
+  .app {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+  .chrome,
+  .statusbar,
+  .find-panel,
+  .overlay,
+  .menu,
+  .swatches,
+  .pm-caret,
+  .pp-sheets,
+  .pp-gap {
+    display: none !important;
+  }
+
+  .workspace {
+    padding: 0;
+    overflow: visible;
+    background: none;
+  }
+
+  .page {
+    width: auto;
+    min-height: 0;
+    border: 0;
+    box-shadow: none;
+    background: #fff;
+    color: #000;
+    zoom: 1 !important;
+  }
+
+  /* Text in the style's color, or black from .page. The soft color is the
+   * gray that saved files and exports use. */
+  .doc {
+    min-height: 0;
+    padding: 0;
+    caret-color: transparent;
+    --soft: #7a7a7a;
+  }
+  .doc blockquote {
+    border-left-color: #999;
+  }
+  .doc pre {
+    background: #f2f2f2;
+  }
+  .doc {
+    --rule-auto: #000;
+  }
+  .doc h1,
+  .doc h2,
+  .doc h3 {
+    break-after: avoid;
+  }
+  .doc figure.img {
+    break-inside: avoid;
+  }
+  .doc figure.img.ProseMirror-selectednode img {
+    outline: none;
+  }
+  .doc p,
+  .doc li {
+    orphans: 2;
+    widows: 2;
+  }
+}
+
+/* ---- Format > Styles ------------------------------------------------------------ */
+
+.sty-dialog {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "list panel"
+    "preview preview"
+    "note note";
+  gap: 10px 14px;
+  width: 100%;
+}
+.sty-list {
+  grid-area: list;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 3px;
+  background: var(--paper);
+  box-shadow: var(--well);
+}
+.sty-tab {
+  padding: 4px 14px 4px 8px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.sty-tab[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--paper);
+}
+.sty-tab:focus-visible {
+  outline: 1px dotted var(--ink);
+  outline-offset: -3px;
+}
+.sty-panel {
+  grid-area: panel;
+}
+.sty-heading {
+  margin: 0;
+  font-size: 1em;
+}
+/* The text fields and the rule fields share one cell, so the dialog keeps its size. */
+.sty-grids {
+  display: grid;
+}
+.sty-grids > .opt-grid {
+  grid-area: 1 / 1;
+  align-content: start;
+  /* A select is as wide as its longest option ("Same as Normal (...)"):
+     let the column shrink below that so a field never leaves the window. */
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.sty-grids .field {
+  min-width: 0;
+  max-width: 100%;
+}
+.sty-grids > .opt-grid[hidden] {
+  display: grid;
+  visibility: hidden;
+}
+.sty-emphasis {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.sty-checks {
+  display: flex;
+  gap: 16px;
+}
+.sty-resets {
+  display: flex;
+  gap: 8px;
+  padding-top: 6px;
+}
+/* A small sheet of paper showing every style; the current one is marked. */
+.doc.sty-preview {
+  grid-area: preview;
+  min-height: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 14px 18px;
+  zoom: 0.75;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--well);
+  user-select: none;
+}
+.sty-preview .sty-current {
+  outline: 1px dashed var(--accent);
+  outline-offset: 3px;
+}
+.sty-note {
+  grid-area: note;
+}
+@media (max-width: 560px) {
+  .sty-dialog {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "list" "panel" "preview" "note";
+  }
+  .sty-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

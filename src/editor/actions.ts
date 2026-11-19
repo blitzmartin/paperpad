@@ -59,6 +59,7 @@ export const EDITOR_ACTIONS = {
   indent: { label: "Increase indent", keys: ["Mod-]"], command: cmd.indent },
   outdent: { label: "Decrease indent", keys: ["Mod-["], command: cmd.outdent },
   rule: { label: "Horizontal rule", command: cmd.insertRule },
+  quote: { label: "Quote", command: cmd.toggleQuote, active: (s) => cmd.currentBlockStyle(s) === "quote" },
   codeBlock: { label: "Code block", command: cmd.toggleCodeBlock, active: (s) => cmd.currentBlockStyle(s) === "code" },
   clearFormatting: { label: "Clear formatting", keys: ["Mod-\\"], command: cmd.clearFormatting },
   updateNormal: { label: "Update Normal to match", command: cmd.updateNormalToMatch, enabled: cmd.updateNormalToMatch },

@@ -5,7 +5,7 @@
 import { lift, setBlockType } from "prosemirror-commands";
 import type { Attrs, MarkType, Node as PMNode, NodeType } from "prosemirror-model";
 import { liftListItem, sinkListItem, wrapInList } from "prosemirror-schema-list";
-import { type Command, type EditorState, NodeSelection, TextSelection } from "prosemirror-state";
+import { type Command, type EditorState, NodeSelection, Plugin, TextSelection, type Transaction } from "prosemirror-state";
 import { docFont, isSize } from "./palette.ts";
 import { lockedRole } from "./roles.ts";
 import { type Align, MAX_INDENT, schema } from "./schema.ts";
@@ -186,6 +186,8 @@ export function setBlockStyle(style: BlockStyle): Command {
       case "code":
         return setBlockType(N.code_block)(state, dispatch);
       case "quote": {
+        // Already in a quote: wrapping again would nest one quote in the other.
+        if (ancestorDepth(state, (t) => t === N.blockquote)) return false;
         const { $from, $to } = state.selection;
         const range = $from.blockRange($to);
         if (!range) return false;
@@ -199,6 +201,14 @@ export function setBlockStyle(style: BlockStyle): Command {
 /** Turns the current paragraph into a code block, or back into a normal paragraph. */
 export const toggleCodeBlock: Command = (state, dispatch) =>
   setBlockStyle(state.selection.$from.parent.type === N.code_block ? "paragraph" : "code")(state, dispatch);
+
+/**
+ * Wraps the paragraph in a quote, or takes it out of the quote it is in.
+ * For a toggle button: setBlockStyle("quote") always wraps, so pressing it
+ * again would nest a quote in the quote.
+ */
+export const toggleQuote: Command = (state, dispatch) =>
+  setBlockStyle(ancestorDepth(state, (t) => t === N.blockquote) ? "paragraph" : "quote")(state, dispatch);
 
 /** Toggles a list: wraps, unwraps or converts between bullet and numbered. */
 export function toggleList(listType: NodeType): Command {
@@ -327,6 +337,52 @@ export const exitCodeBlock =
     }
     return true;
   };
+
+/** The code block whose end the caret is at, or null. */
+const codeBlockEnd = (state: EditorState): PMNode | null => {
+  const { $head, empty } = state.selection;
+  return empty && $head.parent.type === N.code_block && $head.parentOffset === $head.parent.content.size ? $head.parent : null;
+};
+
+/**
+ * Leaves the code block the caret is at the end of: drops its last `drop`
+ * characters (the empty lines) and moves to the start of the paragraph after
+ * it, adding one if needed.
+ */
+const leaveCodeBlockEnd = (state: EditorState, drop: number): Transaction => {
+  const { $head } = state.selection;
+  const tr = state.tr.delete($head.pos - drop, $head.pos);
+  const after = tr.mapping.map($head.after());
+  if (!tr.doc.nodeAt(after)?.isTextblock) tr.insert(after, N.paragraph.create());
+  return tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView();
+};
+
+/**
+ * Enter on an empty last line of a code block leaves the block, with a
+ * hardware keyboard that has no arrow keys to reach exitCodeBlock.
+ */
+export const exitCodeOnEmptyLine: Command = (state, dispatch) => {
+  if (!codeBlockEnd(state)?.textContent.endsWith("\n")) return false;
+  dispatch?.(leaveCodeBlockEnd(state, 1));
+  return true;
+};
+
+/**
+ * The same for on-screen keyboards such as Gboard. Chrome on Android does not
+ * report Enter as a key press (ProseMirror ignores it there): the newline just
+ * appears in the text, so no keymap sees it. When a newline typed at the end
+ * of a code block leaves two empty last lines, both go and the caret leaves
+ * the block. The result is the one Enter gives with exitCodeOnEmptyLine.
+ */
+export const exitCodeOnTypedEmptyLine = new Plugin({
+  appendTransaction: (trs, before, state) => {
+    if (!trs.some((tr) => tr.docChanged)) return null;
+    const code = codeBlockEnd(state);
+    const old = before.selection.$head.parent;
+    const typedNewline = old.type === N.code_block && old.textContent.length + 1 === code?.textContent.length;
+    return typedNewline && code.textContent.endsWith("\n\n") ? leaveCodeBlockEnd(state, 2) : null;
+  },
+});
 
 // ---- document settings ----------------------------------------------------------
 

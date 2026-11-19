@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release builds only. PaperPad never uses the network: INTERNET is in the
+     main Manifest for the dev server (debug builds) and is removed here, so the
+     released APK asks for no permission at all. Check it with
+     `aapt dump permissions <apk>` (ANDROID.md, "A ogni release"). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+</manifest>

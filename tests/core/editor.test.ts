@@ -1,0 +1,216 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import { EditorState, TextSelection } from "prosemirror-state";
+import { BLOCK_STYLES, EDITOR_ACTIONS, type EditorAction } from "../../src/editor/actions.ts";
+import { currentBlockStyle, deleteRuleBefore, exitCodeBlock, exitCodeOnEmptyLine, exitCodeOnTypedEmptyLine, pageNumbersOn, setBlockStyle, stats, togglePageNumbers, toggleQuote } from "../../src/editor/commands.ts";
+import { blockBreakPos, fitGapHeights, GAP, gapTarget, MARGIN, PAGE_H } from "../../src/editor/pages.ts";
+import { schema } from "../../src/editor/schema.ts";
+import { newState } from "../../src/editor/setup.ts";
+import { toDocxParts } from "../../src/export/docx.ts";
+import { toRtf } from "../../src/export/rtf.ts";
+
+const N = schema.nodes;
+const p = (text: string) => N.paragraph.create(null, text ? schema.text(text) : undefined);
+const types = (state: { doc: { forEach(f: (n: { type: { name: string } }) => void): void } }) => {
+  const out: string[] = [];
+  state.doc.forEach((n) => out.push(n.type.name));
+  return out;
+};
+
+test("a horizontal line at the end of a document gets a paragraph after it", () => {
+  const state = newState(N.doc.create(null, [p("a"), N.horizontal_rule.create()]));
+  assert.deepEqual(types(state), ["paragraph", "horizontal_rule", "paragraph"]);
+});
+
+test("the paragraph is also added when a rule becomes the last node", () => {
+  let state = newState(N.doc.create(null, [p("a"), p("b")]));
+  const from = state.doc.child(0).nodeSize;
+  state = state.apply(state.tr.replaceWith(from, state.doc.content.size, N.horizontal_rule.create()));
+  assert.deepEqual(types(state), ["paragraph", "horizontal_rule", "paragraph"]);
+});
+
+test("documents ending in a list or quote are left alone", () => {
+  const list = N.bullet_list.create(null, [N.list_item.create(null, p("x"))]);
+  assert.deepEqual(types(newState(N.doc.create(null, [p("a"), list]))), ["paragraph", "bullet_list"]);
+  const quote = N.blockquote.create(null, p("q"));
+  assert.deepEqual(types(newState(N.doc.create(null, [p("a"), quote]))), ["paragraph", "blockquote"]);
+});
+
+test("backspace after a horizontal line at the end of the document removes it", () => {
+  let state = newState(N.doc.create(null, [p("a"), N.horizontal_rule.create()]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.ok(deleteRuleBefore(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("backspace removes a horizontal line before a paragraph with text and keeps the text", () => {
+  let state = newState(N.doc.create(null, [p("a"), N.horizontal_rule.create(), p("b")]));
+  const start = state.doc.content.size - 2; // start of "b"
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, start)));
+  assert.ok(deleteRuleBefore(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph", "paragraph"]);
+  assert.equal(state.doc.textContent, "ab");
+});
+
+test("backspace is left to the default when no horizontal line comes before", () => {
+  let state = newState(N.doc.create(null, [p("a"), p("b")]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 2)));
+  assert.equal(deleteRuleBefore(state), false);
+});
+
+test("arrow down leaves a code block and adds a paragraph when none follows", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\nb"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.ok(exitCodeBlock("down")(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("arrow keys stay inside the code block on other lines", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\nb"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2))); // after "a"
+  assert.equal(exitCodeBlock("down")(state), false, "a line follows");
+  assert.equal(exitCodeBlock("up")(state), true, "first line");
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.equal(exitCodeBlock("up")(state), false, "last line is not the first");
+});
+
+test("arrow up leaves a code block at the start of the document", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+  assert.ok(exitCodeBlock("up")(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph", "code_block"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("enter on an empty last line leaves a code block, keeping its text", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\n")), p("after")]));
+  const end = state.doc.child(0).nodeSize - 1;
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, end)));
+  assert.ok(exitCodeOnEmptyLine(state, (tr) => (state = state.apply(tr))));
+  assert.equal(state.doc.child(0).textContent, "a", "the empty line is removed");
+  // The paragraph that follows is reused: nothing is added.
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.textContent, "after");
+  assert.equal(state.selection.$from.parentOffset, 0);
+});
+
+test("enter in a code block stays a newline unless the last line is empty", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\nb"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.equal(exitCodeOnEmptyLine(state), false, "last line has text");
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  assert.equal(exitCodeOnEmptyLine(state), false, "not at the end");
+});
+
+test("leaving a code block at the end of the document adds a paragraph", () => {
+  let state = newState(N.doc.create(null, [N.code_block.create(null, schema.text("a\n"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+  assert.ok(exitCodeOnEmptyLine(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("a second typed newline at the end of a code block leaves it, as on Android", () => {
+  // Gboard's Enter is not a key press there: the newline arrives as typed text.
+  const doc = N.doc.create(null, [N.code_block.create(null, schema.text("a"))]);
+  let state = EditorState.create({ doc, plugins: [exitCodeOnTypedEmptyLine] });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  const type = () => (state = state.apply(state.tr.insertText("\n")));
+  type();
+  assert.equal(state.doc.child(0).textContent, "a\n", "the first newline stays in the block");
+  assert.equal(state.selection.$from.parent.type.name, "code_block");
+  type();
+  assert.equal(state.doc.child(0).textContent, "a", "both empty lines go");
+  assert.deepEqual(types(state), ["code_block", "paragraph"]);
+  assert.equal(state.selection.$from.parent.type.name, "paragraph");
+});
+
+test("an empty line typed in the middle of a code block stays", () => {
+  const doc = N.doc.create(null, [N.code_block.create(null, schema.text("a\n\nb"))]);
+  let state = EditorState.create({ doc, plugins: [exitCodeOnTypedEmptyLine] });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 3)));
+  state = state.apply(state.tr.insertText("\n"));
+  assert.equal(state.doc.child(0).textContent, "a\n\n\nb");
+  assert.deepEqual(types(state), ["code_block"]);
+});
+
+test("choosing Quote inside a quote does not nest another one", () => {
+  let state = newState(N.doc.create(null, [N.blockquote.create(null, p("q"))]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  assert.equal(setBlockStyle("quote")(state, (tr) => (state = state.apply(tr))), false);
+  assert.deepEqual(types(state), ["blockquote"]);
+  assert.equal(state.doc.child(0).firstChild!.type.name, "paragraph");
+});
+
+test("the quote toggle wraps once and unwraps the second time", () => {
+  let state = newState(N.doc.create(null, [p("q")]));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+  assert.ok(toggleQuote(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["blockquote"]);
+  assert.equal(currentBlockStyle(state), "quote");
+  assert.ok(toggleQuote(state, (tr) => (state = state.apply(tr))));
+  assert.deepEqual(types(state), ["paragraph"], "no quote inside the quote");
+  assert.equal(currentBlockStyle(state), "paragraph");
+});
+
+test("the word count includes the selection only when there is one", () => {
+  let state = newState(N.doc.create(null, [p("one two three")]));
+  assert.equal(stats(state).selectedWords, null);
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 8))); // "one two"
+  assert.deepEqual([stats(state).words, stats(state).selectedWords], [3, 2]);
+});
+
+test("page numbers toggle on the document and reach RTF and DOCX", () => {
+  let state = newState(N.doc.create(null, [p("hi")]));
+  assert.equal(pageNumbersOn(state), false);
+  assert.ok(!toRtf(state.doc).includes("\\chpgn"));
+  assert.equal(toDocxParts(state.doc, "t").length, 8);
+
+  togglePageNumbers(state, (tr) => (state = state.apply(tr)));
+  assert.equal(pageNumbersOn(state), true);
+  assert.ok(toRtf(state.doc).includes("{\\footer"));
+  const parts = toDocxParts(state.doc, "t");
+  const part = (name: string) => parts.find((x) => x.name === name)!.content;
+  assert.match(part("word/document.xml"), /<w:footerReference [^>]*r:id="rId3"/);
+  assert.match(part("word/footer1.xml"), / PAGE /);
+  assert.match(part("[Content_Types].xml"), /\/word\/footer1\.xml/);
+  assert.match(part("word/_rels/document.xml.rels"), /Id="rId3"[^>]*footer1\.xml/);
+
+  togglePageNumbers(state, (tr) => (state = state.apply(tr)));
+  assert.equal(pageNumbersOn(state), false);
+});
+
+test("every key is bound to one action at most", () => {
+  const keys = [...(Object.values(EDITOR_ACTIONS) as EditorAction[]).flatMap((a) => a.keys ?? []), ...BLOCK_STYLES.flatMap((b) => (b.key ? [b.key] : []))];
+  assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), []);
+});
+
+test("a page break before the first item of a list goes before the list", () => {
+  const list = N.bullet_list.create(null, [N.list_item.create(null, p("one")), N.list_item.create(null, p("two"))]);
+  const doc = N.doc.create(null, [p("a"), list]);
+  const listPos = doc.child(0).nodeSize;
+  assert.equal(blockBreakPos(doc, listPos + 2), listPos, "first item");
+  const second = listPos + 1 + list.child(0).nodeSize;
+  assert.equal(blockBreakPos(doc, second + 1), second, "second item breaks before itself");
+  assert.equal(blockBreakPos(doc, listPos), listPos, "top level block");
+});
+
+test("page spacers are sized so every page starts at its top margin", () => {
+  assert.equal(gapTarget(0), PAGE_H + GAP + MARGIN);
+  // Spacer 0 ends 10px short; spacer 1 already moves with it, so it only needs its own 5px.
+  const targets = [gapTarget(0), gapTarget(1)];
+  const next = fitGapHeights([100, 100], [targets[0]! - 10, targets[1]! - 15], targets);
+  assert.deepEqual(next, [110, 105]);
+  assert.deepEqual(fitGapHeights([0], [targets[0]! + 50], [targets[0]!]), [0], "never negative");
+});
+
+test("every DOCX part is allowed by the Rust export command", () => {
+  const rust = readFileSync(new URL("../../src-tauri/src/commands.rs", import.meta.url), "utf8");
+  // The list ends at the "];" line (part names such as "[Content_Types].xml" contain brackets).
+  const allowed = /const DOCX_PARTS[^=]*=\s*&\[([\s\S]*?)\n\];/.exec(rust)![1]!.match(/"[^"]+"/g)!.map((s) => s.slice(1, -1));
+  const doc = N.doc.create({ pageNumbers: true }, [p("hi")]);
+  assert.deepEqual(toDocxParts(doc, "t").map((x) => x.name).filter((n) => !allowed.includes(n)), []);
+});

@@ -1,0 +1,30 @@
+/* Desktop status bar.
+ * Desktop only: imported by main.css. Part of main.css, in its order: see the note there. */
+
+/* ---- status bar ----------------------------------------------------------------------- */
+
+.statusbar {
+  display: flex;
+  gap: 3px;
+  padding: 3px 4px;
+  background: var(--chrome);
+  border-top: 1px solid var(--hi);
+}
+.sb-cell {
+  padding: 2px 8px;
+  border-radius: 2px;
+  white-space: nowrap;
+  box-shadow: var(--sunken);
+}
+.sb-message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-pos {
+  min-width: 110px;
+}
+.sb-zoom {
+  min-width: 48px;
+  text-align: right;
+}

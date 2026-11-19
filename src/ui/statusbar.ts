@@ -3,7 +3,7 @@
 import type { EditorState } from "prosemirror-state";
 import { stats } from "../editor/commands.ts";
 import { pageInfo } from "../editor/pages.ts";
-import { h } from "./dom.ts";
+import { h } from "../ui-kit/dom.ts";
 
 export function createStatusBar(root: HTMLElement) {
   const message = h("span", { class: "sb-cell sb-message", text: "Ready" });

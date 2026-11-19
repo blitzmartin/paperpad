@@ -8,13 +8,14 @@
 import { type CaretPrefs, caretPrefs, setCaretPrefs } from "../editor/caret.ts";
 import { findFont, type FontKey, FONTS, NEW_DOCUMENT_FONT } from "../editor/palette.ts";
 import { createPreview } from "../editor/setup.ts";
-import { backend, inApp } from "../io/backend.ts";
-import { h } from "./dom.ts";
-import { showModal } from "./modal.ts";
-import { currentPalette, loadPref, PALETTES, setPalette, setThemeMode, storePref, themeMode, type ThemeMode } from "./theme.ts";
+import * as backend from "../io/backend.ts";
+import { inApp } from "../io/backend.ts";
+import { h } from "../ui-kit/dom.ts";
+import { showModal } from "../ui-kit/modal.ts";
+import { currentPalette, loadPref, PALETTES, setPalette, setThemeMode, storePref, themeMode, type ThemeMode } from "../ui-kit/theme.ts";
 import { languageName, parseSpellcheck, storedSpellcheck } from "./spelling.ts";
 import { AUTOSAVE_INTERVALS, type AutosavePrefs, parseAutosave } from "./autosave.ts";
-import { HISTORY_KEEP_CHOICES, parseHistoryKeep } from "./history.ts";
+import { HISTORY_KEEP_CHOICES, parseHistoryKeep } from "../ui-kit/history.ts";
 import { CHOICE_FIELDS, CHOICES, parsePrefs, PRESETS, type PresetId, presetOf } from "./writing-feel.ts";
 
 const PREFS_KEY = "paperpad.caret";

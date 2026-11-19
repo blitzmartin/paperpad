@@ -1,6 +1,9 @@
 node_modules/
 dist/
 dist-mobile/
+dist-android/
+*.jks
+*.keystore
 src-tauri/target/
 # Generated schemas only. gen/android is versioned: its Manifest and signing
 # setup are edited by hand (see ANDROID.md). Its own .gitignore keeps build

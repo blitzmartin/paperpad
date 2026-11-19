@@ -34,7 +34,7 @@ From the [Releases](../../releases) page:
 | Windows 10 and 11 | `.exe` or `.msi` |
 | macOS 11 or later | `.dmg` (`aarch64` for Apple Silicon, `x64` for Intel) |
 | Linux | `.AppImage`, `.deb` or `.rpm` |
-| Android 7.0 or later | `.apk`, from the first release that includes Android |
+| Android 7.0 or later (tablets) | `_android_arm64.apk` |
 
 The apps are not signed by a store, so the system warns you once:
 

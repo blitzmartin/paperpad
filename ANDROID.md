@@ -277,10 +277,10 @@ Arial, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New e Comic Sans
 4. Creare il keystore **fuori dal repo**, con un backup offline:
 
    ```sh
-   keytool -genkey -v -keystore ~/paperpad-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias paperpad
+   keytool -genkey -v -keystore ~/paperpad-release.jks -keyalg RSA -keysize 4096 -validity 10000 -alias paperpad
    ```
 
-5. Aggiungere `keystore.properties` (in `.gitignore`) e la `signingConfig` in `gen/android/app/build.gradle.kts`, come da guida Tauri per la firma Android.
+5. Creare `gen/android/keystore.properties` (in `.gitignore`) con `storeFile` e `keyAlias`, senza password (vedi [RELEASE.md](RELEASE.md#android)). La `signingConfig` in `gen/android/app/build.gradle.kts` lo legge e prende le password dall'ambiente. Senza il file la build release resta non firmata.
 
 ### Sviluppo sul tablet via Wi-Fi
 
@@ -304,7 +304,7 @@ cp <percorso-apk> PaperPad_<versione>_android_arm64.apk
 gh release upload v<versione> PaperPad_<versione>_android_arm64.apk
 ```
 
-Il percorso esatto dell'APK sotto `src-tauri/gen/android/app/build/outputs/apk/` si conferma dopo l'init. I passi vanno raccolti in `scripts/android-release.sh`, che legge la versione da `tauri.conf.json` e rifiuta di caricare se la release `v<versione>` non esiste. `RELEASE.md` va aggiornato con questo passo e con l'APK nella tabella "Expected files".
+Questi passi sono in `scripts/android-release.sh` (`npm run android:release -- --upload`): legge la versione da `tauri.conf.json`, chiede la password del keystore e la passa a Gradle solo come variabile d'ambiente, verifica firma, assenza di `INTERNET` e `versionName`, e carica l'APK solo se la release `v<versione>` esiste e `HEAD` è il commit del tag. La procedura completa è in [RELEASE.md](RELEASE.md#android).
 
 - Un solo APK `arm64-v8a`: quasi tutti i tablet sono arm64. Se servono Chromebook x86 o emulatori, si aggiunge un secondo APK `x86_64` con il nome che lo indica chiaramente.
 - Nessun AAB: serve solo al Play Store.

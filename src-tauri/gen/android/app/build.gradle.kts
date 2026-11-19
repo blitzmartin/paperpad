@@ -14,8 +14,31 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing. keystore.properties (git-ignored, never committed) holds
+// only the keystore path and key alias. The passwords come from the
+// environment, set by scripts/android-release.sh after a hidden prompt, so
+// they are never written to disk. Without the file, release builds stay
+// unsigned and the release script refuses to publish them.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
+
 android {
     compileSdk = 37
+    if (hasReleaseKeystore) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                keyAlias = keystoreProperties.getProperty("keyAlias", "paperpad")
+                storePassword = System.getenv("PAPERPAD_KEYSTORE_PASSWORD")
+                keyPassword = System.getenv("PAPERPAD_KEY_PASSWORD") ?: System.getenv("PAPERPAD_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     namespace = "com.paperboardlabs.paperpad"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -39,6 +62,9 @@ android {
             }
         }
         getByName("release") {
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                enable = true
             }

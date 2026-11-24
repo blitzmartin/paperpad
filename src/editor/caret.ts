@@ -8,6 +8,7 @@
 
 import { Plugin, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { PAGES_LAID_OUT } from "./pages.ts";
 
 export type CaretMovement = "instant" | "smooth" | "smoother";
 export type CaretBlink = "blink" | "fade" | "steady";
@@ -25,7 +26,8 @@ const MOVE_MS: Record<CaretMovement, number> = { instant: 0, smooth: 60, smoothe
 const IDLE_MS = 500;
 /** Room kept between the caret and the window edge when scrolling. */
 const SCROLL_MARGIN = 40;
-const EVENTS = ["focus", "blur", "compositionstart", "compositionend"] as const;
+/** Page view resizing its spacers moves text without a transaction (see editor/pages.ts). */
+const EVENTS = ["focus", "blur", "compositionstart", "compositionend", PAGES_LAID_OUT] as const;
 
 let prefs: CaretPrefs = { movement: "instant", blink: "blink", shape: "line", smoothScroll: false };
 const live = new Set<DrawnCaret>();

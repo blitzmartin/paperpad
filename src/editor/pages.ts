@@ -119,13 +119,28 @@ export const gapTarget = (i: number): number => (i + 1) * (PAGE_H + GAP) + MARGI
 
 // ---- the plugin -------------------------------------------------------------------
 
+/** Fired on the editor element after the spacers were resized, so drawn overlays (the caret) can measure again. */
+export const PAGES_LAID_OUT = "pp-laid-out";
+
+/**
+ * The last fitted height of each spacer, per view. ProseMirror recreates a
+ * spacer whenever it redraws the paragraph around it (each keystroke in a
+ * paragraph split across pages). A new spacer must start at its fitted
+ * height: at 0 the text jumps back onto the previous page until the next
+ * frame, and anything measured meanwhile (the drawn caret, scrolling to the
+ * selection) lands on the wrong page.
+ */
+const fittedHeights = new WeakMap<EditorView, number[]>();
+
 function gapWidget(b: Break, i: number): Decoration {
   return Decoration.widget(
     b.pos,
-    () => {
+    (view) => {
       const el = document.createElement(b.kind === "line" ? "span" : "div");
       el.className = `pp-gap pp-gap-${b.kind}`;
       el.setAttribute("aria-hidden", "true");
+      const h = fittedHeights.get(view)?.[i];
+      if (h) el.style.setProperty("height", `${h}px`);
       return el;
     },
     // The caret at the break belongs to the next page, after the spacer.
@@ -205,6 +220,8 @@ class PageLayout {
       this.view.dispatch(this.view.state.tr.setMeta(key, breaks).setMeta("addToHistory", false));
     }
     if (paged) this.fitGaps();
+    // No spacers in infinite view: forget their heights instead of keeping them for the next switch.
+    else fittedHeights.delete(this.view);
     this.drawSheets();
   }
 
@@ -317,13 +334,21 @@ class PageLayout {
 
   private fitGaps() {
     const gaps = [...this.view.dom.querySelectorAll<HTMLElement>(".pp-gap")];
-    if (!gaps.length) return;
+    if (!gaps.length) {
+      fittedHeights.delete(this.view);
+      return;
+    }
     const y = this.toPage();
     const heights = gaps.map((g) => parseFloat(g.style.height) || 0);
     const bottoms = gaps.map((g) => y(g.getBoundingClientRect().bottom));
     const next = fitGapHeights(heights, bottoms, gaps.map((_, i) => gapTarget(i)));
     // CSSOM writes are allowed by the CSP (only style attributes in markup are not).
     gaps.forEach((g, i) => g.style.setProperty("height", `${next[i]}px`));
+    fittedHeights.set(this.view, next);
+    // Heights can change without a transaction (same breaks, taller content
+    // above), so plugin update hooks alone would miss it. The CSSOM rounds
+    // the px it stores, so compare with slack or this fires on every keystroke.
+    if (next.some((h, i) => Math.abs(h - heights[i]!) > EPS)) this.view.dom.dispatchEvent(new Event(PAGES_LAID_OUT));
   }
 
   private drawSheets() {

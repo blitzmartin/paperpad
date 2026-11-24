@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import androidx.activity.result.ActivityResult
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
@@ -39,6 +40,13 @@ class DescriptorArgs {
   var uri: String = ""
   var mode: String = "r"
 }
+
+private const val TAG = "PaperPad"
+
+// Same text for reading and saving: the cause is in the app that stores the file
+// (Nextcloud, Dropbox...), and its local copy is what usually needs resetting.
+private const val NOT_PROVIDED = "The app that stores this file did not let PaperPad open it. " +
+  "If the file is in a cloud folder, have that app download it again (for example by removing its local copy), then try again."
 
 @TauriPlugin
 class DocumentsPlugin(private val activity: Activity) : Plugin(activity) {
@@ -102,16 +110,24 @@ class DocumentsPlugin(private val activity: Activity) : Plugin(activity) {
     try {
       val pfd = activity.contentResolver.openFileDescriptor(Uri.parse(args.uri), args.mode)
       if (pfd == null) {
-        invoke.reject("The file cannot be opened")
+        Log.w(TAG, "openDescriptor(${args.mode}): the provider returned no descriptor")
+        invoke.reject(NOT_PROVIDED)
         return
       }
       val res = JSObject()
       res.put("fd", pfd.detachFd())
       invoke.resolve(res)
+    } catch (e: SecurityException) {
+      // The grant is gone: the provider revoked it or the app was updated.
+      Log.w(TAG, "openDescriptor(${args.mode}) failed", e)
+      invoke.reject("PaperPad no longer has access to this file. Choose it again with Open.")
     } catch (e: Exception) {
-      // SecurityException (permission gone), FileNotFoundException (deleted, or a
-      // virtual file such as a Google Docs document that has no bytes).
-      invoke.reject(e.message ?: "The file cannot be opened")
+      // FileNotFoundException (deleted, a failed cloud download, or a virtual file
+      // such as a Google Docs document that has no bytes) or a crash inside the
+      // provider. The latter may carry no message at all (seen with a Nextcloud file
+      // whose local copy was out of sync), so the class name always goes in.
+      Log.w(TAG, "openDescriptor(${args.mode}) failed", e)
+      invoke.reject("$NOT_PROVIDED (Details: ${e.javaClass.simpleName}${e.message?.let { ": $it" } ?: ""})")
     }
   }
 

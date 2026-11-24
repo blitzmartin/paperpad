@@ -23,7 +23,7 @@ import type { OpenedDoc } from "../io/backend.ts";
 import { type EditableFormat, newDocId, parseDocument, serializeDocument, serializeHtml } from "../io/native.ts";
 import { DEFAULT_HISTORY_KEEP } from "../ui-kit/history.ts";
 import { prepareImage } from "../ui-kit/image-import.ts";
-import { alertBox, isModalOpen, showModal } from "../ui-kit/modal.ts";
+import { errorBox, isModalOpen, messageOf, showModal } from "../ui-kit/modal.ts";
 
 /** Time from the first unsaved change to the autosave. Leaving the app saves at once. */
 const AUTOSAVE_MS = 15_000;
@@ -77,8 +77,6 @@ type Written = FileInfo & { warning?: string | null };
 /** Shows a short message. `ms` is how long. */
 export type Notify = (text: string, ms?: number) => void;
 
-const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
 export const createSession = (view: EditorView, notify: Notify, onFileChange: () => void) => {
   const emptyDoc = () => newState(blankDoc(MOBILE_FONT)).doc;
 
@@ -96,7 +94,7 @@ export const createSession = (view: EditorView, notify: Notify, onFileChange: ()
 
   const isDirty = () => !view.state.doc.eq(saved);
   const stem = () => file.name.replace(/\.[^.]+$/, "") || "Untitled";
-  const fail = (what: string, e: unknown) => void alertBox("PaperPad", `${what}: ${messageOf(e)}`);
+  const fail = (what: string, e: unknown) => void errorBox(what, e);
 
   const setFile = (next: FileInfo, doc: PMNode) => {
     file = next;

@@ -76,3 +76,12 @@ export function showModal(opts: ModalOptions): Promise<string> {
 export function alertBox(title: string, body: string | Node) {
   return showModal({ title, body, buttons: [{ id: "ok", label: "OK", primary: true }], cancelId: "ok" });
 }
+
+/** The text of a thrown value: backend commands reject with plain strings, not Errors. */
+export const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * Reports a failed action: what failed is the title, the cause is the body.
+ * Kept apart so the cause, often a full sentence from the backend, reads on its own.
+ */
+export const errorBox = (what: string, e: unknown) => alertBox(what, messageOf(e) || "Unknown error.");

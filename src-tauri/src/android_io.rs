@@ -164,8 +164,9 @@ impl Native {
 
     /// `mode` is "r" or "wt" (write, truncating first): the only two the plugin accepts.
     fn file(&self, uri: &str, mode: &str) -> CmdResult<File> {
-        let descriptor: Descriptor = self.0.run_mobile_plugin("openDescriptor", DescriptorArgs { uri, mode }).map_err(|e| format!("Cannot open file: {e}"))?;
-        let fd = descriptor.fd.ok_or("Cannot open file")?;
+        // The plugin's rejection is already a full sentence for the dialog: no prefix.
+        let descriptor: Descriptor = self.0.run_mobile_plugin("openDescriptor", DescriptorArgs { uri, mode }).map_err(|e| e.to_string())?;
+        let fd = descriptor.fd.ok_or("The app that stores this file did not let PaperPad open it.")?;
         // SAFETY: the plugin detached this descriptor from its ParcelFileDescriptor
         // just now, so nothing else owns it. The File closes it on drop.
         Ok(unsafe { File::from_raw_fd(fd) })

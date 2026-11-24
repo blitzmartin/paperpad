@@ -24,7 +24,7 @@ import { pickVersion } from "./ui/history-dialog.ts";
 import { pickWithInput, prepareImage } from "./ui-kit/image-import.ts";
 import { IS_MAC, keyLabel, MOD_LABEL } from "./ui/keys.ts";
 import { buildMenubar, type MenuEntry, openMenuAt, SEP, type TopMenu } from "./ui/menu.ts";
-import { alertBox, isModalOpen, showModal } from "./ui-kit/modal.ts";
+import { alertBox, errorBox, isModalOpen, messageOf, showModal } from "./ui-kit/modal.ts";
 import { autosavePrefs, historyKeepCount, initSpelling, initWritingFeel, onAutosaveChange, openOptions, type OptionsResult, preferredFont, setAutosavePrefs } from "./ui/options.ts";
 import { setPrintPageNumbers } from "./ui/page-numbers.ts";
 import { createStatusBar } from "./ui/statusbar.ts";
@@ -152,10 +152,7 @@ export function startApp() {
     view.focus();
   }
 
-  const fail = (what: string, err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    void alertBox("PaperPad", `${what}: ${message}`);
-  };
+  const fail = (what: string, err: unknown) => void errorBox(what, err);
 
   // ---- files ---------------------------------------------------------------------
 
@@ -180,7 +177,7 @@ export function startApp() {
       else status.flash(auto ? "Autosaved" : `Saved ${info.name}`, auto ? 2000 : 4000);
       return true;
     } catch (e) {
-      if (auto) status.flash(`Autosave failed: ${e instanceof Error ? e.message : String(e)}`, 10000);
+      if (auto) status.flash(`Autosave failed: ${messageOf(e)}`, 10000);
       else fail("Could not save", e);
       return false;
     } finally {

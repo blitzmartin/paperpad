@@ -44,9 +44,28 @@ export const pageViewOn = (): boolean => paged;
 
 /** Switches between page view and infinite view. */
 export function setPageView(on: boolean) {
+  // Only a real switch moves the text. Picking the current view again, or
+  // the startup call, must not scroll.
+  const switched = on !== paged;
   paged = on;
-  for (const l of live) l.setMode();
+  for (const l of live) l.setMode(switched);
 }
+
+/** What stays in place across a switch of view (see PageLayout.setMode). */
+type ScrollAnchor = { kind: "caret" } | { kind: "text"; pos: number; offset: number };
+
+/**
+ * The nearest ancestor that can scroll vertically (#workspace in both shells).
+ * Whether it overflows right now does not matter: a short document may only
+ * overflow after the switch adds margins and sheets.
+ */
+const scrollParent = (el: HTMLElement): HTMLElement | null => {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowY } = getComputedStyle(p);
+    if (overflowY === "auto" || overflowY === "scroll") return p;
+  }
+  return null;
+};
 
 /** Lays the pages out again, after zoom or font changes. */
 export function relayoutPages() {
@@ -167,6 +186,8 @@ class PageLayout {
   private readonly sheets = document.createElement("div");
   private frame = 0;
   private breaks: Break[] = [];
+  /** Set by a switch of view, applied once the new layout is done. */
+  private anchor: ScrollAnchor | null = null;
 
   constructor(view: EditorView) {
     this.view = view;
@@ -187,9 +208,56 @@ class PageLayout {
     return this.view.dom.parentElement!;
   }
 
-  setMode() {
+  /**
+   * Applies the current view. On a switch the margins, sheets and spacers
+   * appear or go, so the text moves and the scroll position no longer shows
+   * what it showed. Like a word processor, the caret stays in view if it was
+   * visible, and otherwise the line being read stays where it was.
+   */
+  setMode(switched = false) {
+    if (switched) this.anchor = this.captureAnchor();
     this.page.classList.toggle("paged", paged);
     this.schedule();
+  }
+
+  /** Read while the old layout is still on screen. */
+  private captureAnchor(): ScrollAnchor | null {
+    const { view } = this;
+    const scroller = scrollParent(view.dom as HTMLElement);
+    if (!scroller) return null;
+    const box = scroller.getBoundingClientRect();
+    const caret = view.coordsAtPos(view.state.selection.head);
+    if (caret.bottom > box.top && caret.top < box.bottom) return { kind: "caret" };
+    // The first text at the top of the window. The desk above the sheet has
+    // no text, so look no higher than the top of the editor.
+    const dom = view.dom.getBoundingClientRect();
+    let top = Math.max(box.top, dom.top) + 1;
+    // Between two sheets the point is on a spacer, and it would resolve to the
+    // last line of the page above, out of sight. Take the next page's first line.
+    for (const gap of view.dom.querySelectorAll(".pp-gap")) {
+      const r = gap.getBoundingClientRect();
+      if (top >= r.top && top < r.bottom) top = r.bottom + 1;
+    }
+    const hit = view.posAtCoords({ left: dom.left + dom.width / 2, top });
+    if (!hit) return null;
+    // Side 1: the text after pos. At a break, side -1 would measure the end of the page above.
+    return { kind: "text", pos: hit.pos, offset: view.coordsAtPos(hit.pos, 1).top - box.top };
+  }
+
+  /** Runs after the spacers have their final heights, so positions are final too. */
+  private restoreAnchor() {
+    const { anchor, view } = this;
+    this.anchor = null;
+    if (!anchor) return;
+    if (anchor.kind === "caret") {
+      // Goes through handleScrollToSelection, so the smooth scroll setting applies.
+      view.dispatch(view.state.tr.scrollIntoView());
+      return;
+    }
+    const scroller = scrollParent(view.dom as HTMLElement);
+    if (!scroller) return;
+    const pos = Math.min(anchor.pos, view.state.doc.content.size);
+    scroller.scrollTop += view.coordsAtPos(pos, 1).top - scroller.getBoundingClientRect().top - anchor.offset;
   }
 
   update(view: EditorView, prev: EditorState) {
@@ -223,6 +291,7 @@ class PageLayout {
     // No spacers in infinite view: forget their heights instead of keeping them for the next switch.
     else fittedHeights.delete(this.view);
     this.drawSheets();
+    this.restoreAnchor();
   }
 
   /** Converts a viewport y to page pixels: from the top of the first sheet, unzoomed. */

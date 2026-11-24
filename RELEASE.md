@@ -69,7 +69,16 @@ The `versionCode` is derived by Tauri from the version (`1.1.0` gives `1001000`)
 - `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock`
 - `src/version.ts`, which the About dialog and saved files read
 
-It takes a version like `0.2.0` or `patch` (0.1.0 to 0.1.1), `minor` (0.1.0 to 0.2.0) or `major` (0.1.0 to 1.0.0). It only accepts plain `x.y.z` versions newer than the current one, because Windows installers reject suffixes like `-beta`. If any file cannot be found or holds a different version, it writes nothing and says which file to fix.
+It takes the exact version or the part to raise. It never looks at the commits: which part changes is your choice, following [semantic versioning](https://semver.org). From `1.1.0`:
+
+| Command | Result | When to use it |
+| --- | --- | --- |
+| `npm run bump patch` | `1.1.1` | Bug fixes only, nothing new for the user |
+| `npm run bump minor` | `1.2.0` | New features that keep working with files and settings from earlier versions |
+| `npm run bump major` | `2.0.0` | Changes that break compatibility, for example a file format older versions cannot open |
+| `npm run bump 1.1.1` | `1.1.1` | The exact version given (a leading `v` is allowed) |
+
+Raising a part resets the ones after it to `0`. It only accepts plain `x.y.z` versions newer than the current one, because Windows installers reject suffixes like `-beta`. If any file cannot be found or holds a different version, it writes nothing and says which file to fix.
 
 Do not edit the version by hand. To add a file that holds it, add it to `scripts/version-files.ts`.
 
